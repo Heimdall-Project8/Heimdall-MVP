@@ -5,30 +5,28 @@ import os
 
 # --- 1. SETUP STORAGE & MEMORY ---
 KNOWN_FACES_DIR = "known_faces"
-# Create the folder if it doesn't exist
 os.makedirs(KNOWN_FACES_DIR, exist_ok=True)
 
 known_face_encodings = []
 known_face_names = []
 
-print("Booting system and loading known faces from disk...")
-# Automatically load everyone saved in the folder
+print("Booting system and loading face embeddings from disk...")
+# Automatically load every saved mathematical vector profile
 for filename in os.listdir(KNOWN_FACES_DIR):
-    if filename.endswith(".jpg") or filename.endswith(".png"):
+    if filename.endswith(".npy"):  # Look for NumPy binary files instead of images
         name = os.path.splitext(filename)[0]
-        image_path = os.path.join(KNOWN_FACES_DIR, filename)
+        file_path = os.path.join(KNOWN_FACES_DIR, filename)
         
-        image = face_recognition.load_image_file(image_path)
-        encodings = face_recognition.face_encodings(image)
+        # Fast direct load: No image decoding or AI parsing required on boot
+        encoding = np.load(file_path)
         
-        if len(encodings) > 0:
-            known_face_encodings.append(encodings[0])
-            known_face_names.append(name)
+        known_face_encodings.append(encoding)
+        known_face_names.append(name)
 
-print(f"System ready. Loaded {len(known_face_names)} profiles.")
+print(f"System ready. Loaded {len(known_face_names)} profiles instantly.")
 print("-----------------------------------------")
 print("HOTKEYS:")
-print("[r] - Register a new face from the live feed")
+print("[r] - Register a new face embedding from the live feed")
 print("[q] - Quit system")
 print("-----------------------------------------")
 
@@ -41,7 +39,6 @@ face_names = []
 process_this_frame = True
 
 while True:
-    # Grab a single frame of video
     ret, frame = video_capture.read()
     if not ret:
         break
@@ -77,7 +74,6 @@ while True:
         bottom *= 4
         left *= 4
 
-        # Red box for Unknown, Green box for Known
         color = (0, 0, 255) if name == "Unknown" else (0, 255, 0)
 
         cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
@@ -97,7 +93,6 @@ while True:
         # --- REGISTRATION MODE ---
         print("\n[!] Registration Triggered.")
         
-        # We grab a fresh, FULL-RESOLUTION frame for maximum accuracy during registration
         ret, reg_frame = video_capture.read()
         rgb_reg_frame = cv2.cvtColor(reg_frame, cv2.COLOR_BGR2RGB)
         
@@ -109,28 +104,26 @@ while True:
         elif len(reg_locations) > 1:
             print("[X] Failed: Multiple faces detected. Please stand alone.")
         else:
-            # We found exactly one face. Ask the terminal for a name.
             print("[✓] Face locked.")
             name = input(">> ENTER NAME FOR THIS USER: ")
             
             if name.strip():
-                # Extract the 128-point math encoding
+                # Extract the 128-point math encoding array
                 reg_encoding = face_recognition.face_encodings(rgb_reg_frame, reg_locations)[0]
                 
                 # 1. Add them to live memory so they are recognized instantly
                 known_face_encodings.append(reg_encoding)
                 known_face_names.append(name)
                 
-                # 2. Save their picture to the hard drive so they load next time
-                save_path = os.path.join(KNOWN_FACES_DIR, f"{name}.jpg")
-                cv2.imwrite(save_path, reg_frame)
+                # 2. Save the array to disk as a binary file instead of saving the raw picture
+                save_path = os.path.join(KNOWN_FACES_DIR, f"{name}.npy")
+                np.save(save_path, reg_encoding)
                 
-                print(f"[✓] Success! {name} has been added to the database.")
+                print(f"[✓] Success! Vector embedding for {name} has been secured to disk.")
             else:
                 print("[X] Registration cancelled.")
         
         print("Resuming live feed...\n")
 
-# Cleanup
 video_capture.release()
 cv2.destroyAllWindows()

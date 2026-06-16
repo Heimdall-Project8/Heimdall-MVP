@@ -8,26 +8,27 @@ import os
 print("Loading YOLOv8 Nano (CPU Optimized)...")
 yolo_model = YOLO("yolov8n.pt") 
 
-# --- 2. LOAD KNOWN FACES ---
+# --- 2. LOAD KNOWN FACES (EMBEDDINGS OPTIMIZED) ---
 KNOWN_FACES_DIR = "known_faces"
 os.makedirs(KNOWN_FACES_DIR, exist_ok=True)
 
 known_face_encodings = []
 known_face_names = []
 
-print("Loading faces from memory...")
+print("Booting system and loading face embeddings from disk...")
+# Automatically load every saved mathematical vector profile (.npy)
 for filename in os.listdir(KNOWN_FACES_DIR):
-    if filename.endswith(".jpg") or filename.endswith(".png"):
+    if filename.endswith(".npy"):  # Looking for raw math arrays instead of heavy images
         name = os.path.splitext(filename)[0]
-        image_path = os.path.join(KNOWN_FACES_DIR, filename)
+        file_path = os.path.join(KNOWN_FACES_DIR, filename)
         
-        image = face_recognition.load_image_file(image_path)
-        encodings = face_recognition.face_encodings(image)
-        if len(encodings) > 0:
-            known_face_encodings.append(encodings[0])
-            known_face_names.append(name)
+        # Fast direct load: completely bypasses image decoding and AI face encoding pipelines
+        encoding = np.load(file_path)
+        known_face_encodings.append(encoding)
+        known_face_names.append(name)
 
-print("System ready. Running tracking loop...")
+print(f"System ready. Loaded {len(known_face_names)} profiles instantly.")
+print("Running tracking loop... Press 'q' to quit.")
 
 # --- 3. PERSISTENT MEMORY STORAGE ---
 # This list holds targets across frames to prevent flickering
@@ -73,8 +74,8 @@ while True:
                     top, right, bottom, left = face_locations[0]
                     face_encoding = face_encodings[0]
 
-                    # Match check
-                    matches = face_recognition.compare_faces(known_face_encodings, face_encoding, tolerance=0.55)
+                    # Match check against our loaded array database
+                    matches = face_recognition.compare_faces(known_face_encodings, face_encoding, tolerance=0.65)
                     if len(known_face_encodings) > 0:
                         face_distances = face_recognition.face_distance(known_face_encodings, face_encoding)
                         best_match_index = np.argmin(face_distances)
@@ -111,7 +112,7 @@ while True:
                 ox1, oy1, _, _ = old_target['body_box']
                 distance = (x1 - ox1)**2 + (y1 - oy1)**2  # Distance formula
                 
-                if distance < min_distance and distance < 15000: # Max 120 pixel movement drift
+                if distance < min_distance and distance < 15000: # Max movement drift threshold
                     min_distance = distance
                     assigned_name = old_target['name']
                     
