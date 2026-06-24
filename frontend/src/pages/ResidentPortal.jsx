@@ -9,7 +9,9 @@ export default function ResidentPortal({ onLogout }) {
   const [deliverySuccess, setDeliverySuccess] = useState(false);
   const [cardReported, setCardReported] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [vehicleNum, setVehicleNum] = useState('');
+  const [vehicles, setVehicles] = useState([]);
+  const [vehicleInput, setVehicleInput] = useState("");
+  const today = new Date().toISOString().split("T")[0];
 
   const triggerAlert = () => {
     setToast(true);
@@ -21,6 +23,68 @@ export default function ResidentPortal({ onLogout }) {
     setSuccessFlag(true);
     setTimeout(() => setSuccessFlag(false), 3000);
     e.target.reset();
+  };
+
+  const handleGuestSubmit = (e) => {
+    e.preventDefault();
+    const entryDate = e.target.entryDate.value;
+
+    if (entryDate < today) {
+      alert("Entry date cannot be in the past.");
+      return;
+    }
+
+    setGuestSuccess(true);
+    setTimeout(() => setGuestSuccess(false), 3000);
+    e.target.reset();
+  };
+
+  const handleGroupSubmit = (e) => {
+    e.preventDefault();
+    const entryDate = e.target.entryDate.value;
+
+    if (entryDate < today) {
+      alert("Entry date cannot be in the past.");
+      return;
+    }
+
+    setGroupSuccess(true);
+    setTimeout(() => setGroupSuccess(false), 3000);
+    e.target.reset();
+  };
+
+  const handleWorkerSubmit = (e) => {
+    e.preventDefault();
+    const start = e.target.startTime.value;
+    const end = e.target.endTime.value;
+
+    if (start >= end) {
+      alert("End time must be after start time.");
+      return;
+    }
+
+    setWorkerSuccess(true);
+    setTimeout(() => setWorkerSuccess(false), 3000);
+    e.target.reset();
+  };
+
+  const addVehicle = (e) => {
+    e.preventDefault();
+    const vehicle = vehicleInput.trim().toUpperCase();
+
+    if (!vehicle) return;
+
+    if (vehicles.includes(vehicle)) {
+      alert("Vehicle already registered.");
+      return;
+    }
+
+    setVehicles([...vehicles, vehicle]);
+    setVehicleInput("");
+  };
+
+  const removeVehicle = (vehicle) => {
+    setVehicles(vehicles.filter(v => v !== vehicle));
   };
 
   return (
@@ -35,7 +99,7 @@ export default function ResidentPortal({ onLogout }) {
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
             <span className="hidden sm:inline">My Profile</span>
           </button>
-          <button onClick={onLogout} className="text-sm bg-gray-800 hover:bg-gray-700 border border-gray-700 text-red-400 px-4 py-2 rounded-lg transition">Disconnect</button>
+          <button onClick={onLogout} className="text-sm bg-gray-800 hover:bg-gray-700 border border-gray-700 text-red-400 px-4 py-2 rounded-lg transition">Sign Out</button>
         </div>
       </nav>
 
@@ -52,27 +116,35 @@ export default function ResidentPortal({ onLogout }) {
             
             <div className="space-y-4 text-sm text-gray-300">
               <div className="flex justify-between border-b border-gray-800 pb-2"><span className="text-gray-500">Full Name</span> <span className="font-bold text-white">John Doe</span></div>
-              <div className="flex justify-between border-b border-gray-800 pb-2"><span className="text-gray-500">Network ID</span> <span className="font-mono text-gray-400">res_142</span></div>
+              <div className="flex justify-between border-b border-gray-800 pb-2"><span className="text-gray-500">Resident ID</span> <span className="font-mono text-gray-400">res_142</span></div>
               <div className="flex justify-between border-b border-gray-800 pb-2"><span className="text-gray-500">Flat Number</span> <span className="font-bold text-blue-400">A-402</span></div>
               <div className="flex justify-between border-b border-gray-800 pb-2"><span className="text-gray-500">Phone Number</span> <span>+1 (555) 123-4567</span></div>
             </div>
 
             <div className="mt-6 pt-4 border-t border-gray-800">
-              <div className="mb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Vehicle Registry</div>
-              {vehicleNum ? (
-                <div className="flex justify-between items-center bg-gray-950 p-3 rounded-lg border border-gray-800">
-                  <div className="flex items-center space-x-3">
-                    <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"></path></svg>
-                    <span className="font-mono text-blue-400 font-bold tracking-widest">{vehicleNum}</span>
-                  </div>
-                  <button onClick={() => setVehicleNum('')} className="text-xs text-red-400 hover:text-red-300 transition">Remove</button>
-                </div>
-              ) : (
-                <form onSubmit={(e) => { e.preventDefault(); setVehicleNum(e.target.vNum.value); }} className="flex gap-2">
-                  <input name="vNum" type="text" placeholder="e.g. ABC-1234" required className="flex-1 px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-white focus:outline-none focus:border-blue-500 text-sm transition" />
-                  <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2.5 rounded-lg text-sm font-bold transition shadow-lg">Add</button>
-                </form>
-              )}
+              <div className="mb-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Registered Vehicles</div>
+              <form onSubmit={addVehicle} className="flex gap-2 mb-4">
+                <input
+                  value={vehicleInput}
+                  onChange={(e) => setVehicleInput(e.target.value)}
+                  placeholder="TS09AB1234"
+                  className="flex-1 px-3 py-2.5 bg-gray-950 border border-gray-700 rounded-lg text-white"
+                />
+                <button type="submit" className="bg-blue-600 hover:bg-blue-700 text-white px-5 rounded-lg">Add</button>
+              </form>
+
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {vehicles.length === 0 ? (
+                  <p className="text-gray-500 text-sm">No vehicles registered.</p>
+                ) : (
+                  vehicles.map(vehicle => (
+                    <div key={vehicle} className="flex justify-between items-center bg-gray-950 p-3 rounded-lg border border-gray-800">
+                      <span className="font-mono text-blue-400">{vehicle}</span>
+                      <button onClick={() => removeVehicle(vehicle)} className="text-red-400 hover:text-red-300 text-xs">Remove</button>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -82,27 +154,28 @@ export default function ResidentPortal({ onLogout }) {
         <div className="bg-blue-900/30 border border-blue-800/60 text-blue-200 px-4 py-3 rounded-lg flex items-start sm:items-center space-x-3 mb-6 shadow-lg animate-fadeIn">
           <svg className="w-5 h-5 text-blue-400 shrink-0 mt-0.5 sm:mt-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
           <span className="text-sm font-medium">
-            <strong className="text-blue-300">Admin Broadcast:</strong> Heimdall AI network maintenance scheduled for tonight at 02:00 AM. Expect brief portal interruptions.
+            <strong className="text-blue-300">System Announcement:</strong> Heimdall AI network maintenance scheduled for tonight at 02:00 AM. Expect brief portal interruptions.
           </span>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="space-y-6">
+            {/* Guest Pass */}
             <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 shadow-lg">
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Issue Single Guest Pass</h2>
-              <form className="space-y-4" onSubmit={(e) => handleFormSubmit(e, setGuestSuccess)}>
+              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Guest Pass</h2>
+              <form className="space-y-4" onSubmit={handleGuestSubmit}>
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1">Guest Full Name</label>
-                  <input type="text" placeholder="e.g. Jane Smith" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
+                  <input type="text" name="guestName" placeholder="Jane Smith" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-gray-400 mb-1">Entry Date</label>
-                    <input type="date" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
+                    <input type="date" name="entryDate" required min={today} className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-400 mb-1">Duration (Days)</label>
-                    <input type="number" min="1" placeholder="1" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
+                    <input type="number" name="duration" min="1" placeholder="1" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition" />
                   </div>
                 </div>
                 {guestSuccess && <div className="text-green-400 text-xs text-center p-2 bg-green-900/30 border border-green-800 rounded">Single QR Pass Generated!</div>}
@@ -110,64 +183,67 @@ export default function ResidentPortal({ onLogout }) {
               </form>
             </div>
 
+            {/* Group Pass */}
             <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 shadow-lg">
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Issue Group Event Pass</h2>
-              <form className="space-y-4" onSubmit={(e) => handleFormSubmit(e, setGroupSuccess)}>
+              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Group Pass</h2>
+              <form className="space-y-4" onSubmit={handleGroupSubmit}>
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1">Event / Group Name</label>
-                  <input type="text" placeholder="e.g. Birthday Party" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition" />
+                  <input type="text" name="groupName" placeholder="Birthday Party" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition" />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-medium text-gray-400 mb-1">Entry Date</label>
-                    <input type="date" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition" />
+                    <input type="date" name="entryDate" required min={today} className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition" />
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-400 mb-1">Duration (Days)</label>
-                    <input type="number" min="1" placeholder="1" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition" />
+                    <input type="number" name="duration" min="1" placeholder="1" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition" />
                   </div>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1">Number of Visitors</label>
-                  <input type="number" min="2" placeholder="e.g. 15" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition" />
+                  <input type="number" name="visitorsCount" min="2" placeholder="15" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition" />
                 </div>
                 {groupSuccess && <div className="text-green-400 text-xs text-center p-2 bg-green-900/30 border border-green-800 rounded">Group QR Master Pass Generated!</div>}
-                <button type="submit" className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-lg transition shadow-lg mt-2">Generate Group QR</button>
+                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition shadow-lg mt-2">Generate Group QR</button>
               </form>
             </div>
           </div>
 
           <div className="space-y-6">
+            {/* Worker Pass */}
             <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 shadow-lg">
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Issue Worker Pass</h2>
-              <form className="space-y-4" onSubmit={(e) => handleFormSubmit(e, setWorkerSuccess)}>
+              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Worker Pass</h2>
+              <form className="space-y-4" onSubmit={handleWorkerSubmit}>
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1">Worker Name / Role</label>
-                  <input type="text" placeholder="e.g. Plumber, Electrician" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 transition" />
+                  <input type="text" name="workerRole" placeholder="Plumber, Electrician" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-yellow-500 transition" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1">Valid Timeslot (Today)</label>
                   <div className="flex items-center space-x-2">
-                    <input type="time" required className="flex-1 px-2 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500" />
+                    <input type="time" name="startTime" required className="flex-1 px-2 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500" />
                     <span className="text-gray-500 text-xs font-bold">TO</span>
-                    <input type="time" required className="flex-1 px-2 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500" />
+                    <input type="time" name="endTime" required className="flex-1 px-2 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500" />
                   </div>
                 </div>
                 {workerSuccess && <div className="text-green-400 text-xs text-center p-2 bg-green-900/30 border border-green-800 rounded">Worker Timeslot QR Generated!</div>}
-                <button type="submit" className="w-full bg-yellow-600 hover:bg-yellow-700 text-white font-bold py-2.5 rounded-lg transition shadow-lg mt-2">Generate Worker QR</button>
+                <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg transition shadow-lg mt-2">Generate Worker QR</button>
               </form>
             </div>
 
+            {/* Delivery Approval */}
             <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 shadow-lg">
-              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Pre-Approve Delivery</h2>
+              <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Delivery Approval</h2>
               <form className="space-y-4" onSubmit={(e) => handleFormSubmit(e, setDeliverySuccess)}>
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1">Delivery Service / Name <span className="text-gray-600">(Optional)</span></label>
-                  <input type="text" placeholder="e.g. Amazon, FedEx" className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
+                  <input type="text" name="deliveryService" placeholder="Amazon, FedEx" className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 transition" />
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-400 mb-1">Expected Arrival Window</label>
-                  <select required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition appearance-none">
+                  <select name="arrivalWindow" required className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500 transition appearance-none">
                     <option value="" disabled selected>Select estimated time...</option>
                     <option value="1h">Within the next 1 Hour</option>
                     <option value="morning">Today Morning (8 AM - 12 PM)</option>
@@ -187,27 +263,31 @@ export default function ResidentPortal({ onLogout }) {
                 <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Alerts Inbox</h2>
                 <span className="flex h-3 w-3 relative"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span><span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span></span>
               </div>
-              <div className="p-4 space-y-3 overflow-y-auto flex-1">
+              
+              {/* 🛠️ Capped height and custom dark scrollbars applied below */}
+              <div 
+                    className="p-4 space-y-3 overflow-y-auto h-[500px]" 
+                    style={{ scrollbarWidth: 'thin', scrollbarColor: '#374151 transparent' }}
+                  >
                 <div className="bg-yellow-950/30 border-l-4 border-yellow-500 p-3 rounded-r-lg">
                   <span className="text-xs font-bold text-yellow-400 uppercase">MEDIUM SEVERITY</span>
                   <p className="text-sm text-gray-300 mt-1">Tailgating anomaly recorded during entry. Please ensure doors close securely.</p>
                 </div>
               </div>
-              <button onClick={triggerAlert} className="m-3 text-xs bg-gray-800 hover:bg-gray-700 text-gray-300 py-2 rounded transition">Simulate Push Notification</button>
             </div>
 
             <button 
               onClick={() => setCardReported(true)} 
               disabled={cardReported}
               className={`w-full font-bold py-4 px-4 rounded-xl transition shadow-lg ${cardReported ? 'bg-gray-800 text-gray-500 border-gray-700' : 'bg-red-900/80 hover:bg-red-800 text-red-100 border border-red-700'}`}>
-              {cardReported ? 'Card Locked & Security Notified' : 'Report Lost / Stolen Access Card'}
+              {cardReported ? 'Card Locked & Security Notified' : 'Report Lost Card'}
             </button>
           </div>
         </div>
 
         <div className="mt-6 bg-gray-900 rounded-xl p-6 border border-gray-800 shadow-lg overflow-hidden">
           <div className="flex justify-between items-center mb-4 border-b border-gray-800 pb-3">
-            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Access Telemetry & Guest Log</h2>
+            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">Recent Activity</h2>
             <span className="text-xs bg-gray-800 text-gray-400 px-2 py-1 rounded border border-gray-700">Last 7 Days</span>
           </div>
 

@@ -14,6 +14,19 @@ export default function GuardDashboard({ onLogout }) {
   const [actionTaken, setActionTaken] = useState('');
   const [feedback, setFeedback] = useState('');
 
+  // Active Security Guard Profile State
+  const [currentGuard] = useState({
+    name: "Officer J. Vance",
+    badgeId: "HEI-9042",
+    station: "Gate House Alpha"
+  });
+
+  // Delivery Pre-Approval State
+  const [preApprovals, setPreApprovals] = useState([
+    { id: 1, resident: "John Doe (A-402)", courier: "Amazon", window: "2–4 PM", status: "pending" },
+    { id: 2, resident: "Sarah Jenkins (B-105)", courier: "FedEx", window: "Morning (8 AM - 12 PM)", status: "pending" }
+  ]);
+
   useEffect(() => {
     const gates = ["NORTH_GATE", "SOUTH_GATE", "LOBBY_ENTRANCE", "SERVICE_GATE"];
     const events = ["Badge_Swipe", "Camera_Scan", "QR_Scan"];
@@ -71,21 +84,39 @@ export default function GuardDashboard({ onLogout }) {
     setFlatNumber('');
   };
 
+  const handleAllowEntry = (id) => {
+    setPreApprovals(prev => 
+      prev.map(item => item.id === id ? { ...item, status: "verified" } : item)
+    );
+  };
+
   return (
     <div className="bg-gray-950 min-h-screen font-sans text-gray-200 h-screen overflow-hidden flex flex-col w-full">
       <nav className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex justify-between items-center shrink-0">
         <div className="flex items-center space-x-3">
-          <span className="text-xl font-bold tracking-widest text-white">HEIMDALL LOC</span>
-          <span className="px-2 py-0.5 bg-emerald-900/40 text-emerald-400 border border-emerald-800 rounded text-xs font-mono font-bold animate-pulse">STREAM ONLINE</span>
+          <span className="text-xl font-bold tracking-widest text-white">HEIMDALL</span>
+          <span className="px-2 py-0.5 bg-emerald-900/40 text-emerald-400 border border-emerald-800 rounded text-xs font-mono font-bold">GUARD PORTAL</span>
         </div>
         <div className="flex items-center space-x-6">
+          
+          {/* 🛠️ Active Security Profile Identifier */}
+          <div className="flex items-center space-x-3 bg-gray-950/60 border border-gray-800 rounded-lg px-3 py-1.5 hidden sm:flex">
+            <div className="h-7 w-7 rounded-full bg-blue-900/40 border border-blue-800 flex items-center justify-center text-xs font-bold text-blue-400 font-mono">
+              {currentGuard.name.split(' ').pop()[0]}
+            </div>
+            <div className="text-left">
+              <p className="text-xs font-bold text-gray-200 leading-tight">{currentGuard.name}</p>
+              <p className="text-[10px] text-gray-500 font-mono leading-none">{currentGuard.badgeId} • {currentGuard.station}</p>
+            </div>
+          </div>
+
           <div className="text-right border-r border-gray-800 pr-6 hidden sm:block">
             <p className="text-xs text-gray-500 uppercase tracking-wider font-bold">Active Queue</p>
             <p className={`text-sm font-bold font-mono ${alarmActive ? 'text-red-400' : 'text-blue-400'}`}>
               {alarmActive ? '1 Pending Alarm' : '0 Pending Alarms'}
             </p>
           </div>
-          <button onClick={onLogout} className="text-sm bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white px-4 py-2 rounded-lg transition">Log Out</button>
+          <button onClick={onLogout} className="text-sm bg-gray-800 hover:bg-gray-700 border border-gray-700 text-red-400 px-4 py-2 rounded-lg transition">Sign Out</button>
         </div>
       </nav>
 
@@ -185,7 +216,7 @@ export default function GuardDashboard({ onLogout }) {
                     <span>Request Admin Blacklist</span>
                   </button>
                   <div className="flex space-x-3">
-                    <button onClick={() => initiateResolution('DISMISSED')} className="px-5 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition border border-gray-700">Dismiss</button>
+                    <button onClick={() => initiateResolution('DISMISSED')} className="px-5 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition border border-gray-700">Ignore Alert</button>
                     <button onClick={() => initiateResolution('DISPATCHED')} className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-sm transition shadow-lg">Confirm Threat & Intercept</button>
                   </div>
                 </div>
@@ -234,6 +265,52 @@ export default function GuardDashboard({ onLogout }) {
                 <button type="button" onClick={endCall} className="text-xs bg-red-900/50 text-red-400 hover:bg-red-900 px-3 py-1 rounded border border-red-800 transition">End Call</button>
               </div>
             )}
+          </div>
+
+          {/* Gate Delivery Verification Section */}
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg">
+            <div className="flex items-center space-x-2 mb-4 border-b border-gray-800 pb-3">
+              <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Pre-approved Deliveries</h2>
+            </div>
+
+            <div className="space-y-3 max-h-60 overflow-y-auto pr-1" style={{ scrollbarWidth: 'thin', scrollbarColor: '#374151 transparent' }}>
+              {preApprovals.length === 0 ? (
+                <p className="text-xs text-gray-500 italic text-center py-4">No active delivery pre-approvals listed.</p>
+              ) : (
+                preApprovals.map((delivery) => (
+                  <div 
+                    key={delivery.id} 
+                    className={`p-4 rounded-xl border transition-all duration-300 ${delivery.status === 'verified' ? 'bg-gray-950/40 border-emerald-900/40 opacity-60' : 'bg-gray-950 border-gray-800'}`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="mt-2.5 space-y-1 text-xs">
+                          <p className="text-gray-400 font-sans">Expected: <strong className="text-white font-mono">{delivery.window}</strong></p>
+                          <p className="text-gray-400 font-sans">Courier: <strong className="text-blue-400 font-sans">{delivery.courier}</strong></p>
+                          <p className="text-[10px] text-gray-500 font-sans">Destination: {delivery.resident}</p>
+                        </div>
+                      </div>
+
+                      {delivery.status === 'pending' ? (
+                        <button
+                          onClick={() => handleAllowEntry(delivery.id)}
+                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition shadow-md border border-emerald-500 shrink-0 self-center"
+                        >
+                          Allow Entry
+                        </button>
+                      ) : (
+                        <span className="text-xs font-mono text-emerald-500 bg-emerald-950/20 px-3 py-1 rounded border border-emerald-900/50 self-center">
+                          PASSED_GATE
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
 

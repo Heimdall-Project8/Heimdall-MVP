@@ -88,28 +88,28 @@ export default function AdminTower({ onLogout }) {
     <div className={`min-h-screen font-sans text-gray-200 transition-colors duration-500 overflow-x-hidden w-full pb-10 ${lockdown ? 'bg-red-950/90' : 'bg-gray-950'}`}>
       <nav className="bg-gray-900 border-b border-purple-900/50 px-6 py-4 flex justify-between items-center sticky top-0 z-40">
         <div className="flex items-center space-x-3">
-          <span className="text-xl font-bold tracking-widest text-white">HEIMDALL TOWER</span>
-          <span className="px-2 py-0.5 bg-purple-900/40 text-purple-400 border border-purple-800 rounded text-xs font-mono font-bold hidden sm:inline-block">ROOT ACCESS</span>
+          <span className="text-xl font-bold tracking-widest text-white">HEIMDALL</span>
+          <span className="px-2 py-0.5 bg-purple-900/40 text-purple-400 border border-purple-800 rounded text-xs font-mono font-bold hidden sm:inline-block">ADMIN PORTAL</span>
         </div>
-        <button onClick={onLogout} className="text-sm bg-gray-800 hover:bg-gray-700 border border-gray-700 text-white px-4 py-2 rounded-lg transition">Disconnect</button>
+        <button onClick={onLogout} className="text-sm bg-gray-800 hover:bg-gray-700 border border-gray-700 text-red-400 px-4 py-2 rounded-lg transition">Sign Out</button>
       </nav>
 
       <main className="p-6 max-w-7xl mx-auto space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-gray-900 p-5 rounded-xl border border-gray-800">
-            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">AI Threat Detection</span>
+            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">AI Detection Accuracy</span>
             <div className="text-2xl font-bold text-emerald-400 mt-1">99.4%</div>
           </div>
           <div className="bg-gray-900 p-5 rounded-xl border border-gray-800">
-            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">False Positive Override</span>
+            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">False Alerts</span>
             <div className="text-2xl font-bold text-blue-400 mt-1">1.2%</div>
           </div>
           <div className="bg-gray-900 p-5 rounded-xl border border-gray-800">
-            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Telemetry Processed</span>
-            <div className="text-2xl font-bold text-gray-200 mt-1 font-mono">1,402,881</div>
+            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Access Events Today</span>
+            <div className="text-2xl font-bold text-gray-200 mt-1 font-mono">1,402</div>
           </div>
-          <div className="bg-gray-900 p-5 rounded-xl border border-gray-800 border-l-4 border-l-purple-500">
-            <span className="text-[10px] text-purple-400 uppercase tracking-widest font-bold">Active Hardware Gates</span>
+          <div className="bg-gray-900 p-5 rounded-xl border border-gray-800">
+            <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Gates Status</span>
             <div className="text-2xl font-bold text-purple-300 mt-1">14 / 14 Online</div>
           </div>
         </div>
@@ -118,7 +118,7 @@ export default function AdminTower({ onLogout }) {
           <div className="space-y-6 flex flex-col">
             <div className="bg-gray-900 rounded-xl border border-gray-800 flex-1 flex flex-col">
               <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-950/30">
-                <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Escalation Queue</h2>
+                <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Pending Requests</h2>
                 <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${pendingRequest ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-400'}`}>
                   {pendingRequest ? '1 Pending' : '0 Pending'}
                 </span>
@@ -128,29 +128,29 @@ export default function AdminTower({ onLogout }) {
                 {pendingRequest ? (
                   <div className="bg-gray-950 border border-gray-800 rounded-lg p-4 animate-fadeIn">
                     <div className="flex justify-between items-start mb-2">
-                      <span className="text-[10px] font-bold text-purple-400 uppercase bg-purple-900/30 px-2 py-1 rounded">Blacklist Request</span>
                       <span className="text-[10px] text-gray-500">From: Unit Alpha</span>
                     </div>
                     <h3 className="text-sm font-bold text-white mb-1">Subject: Bob Vance (res_250)</h3>
                     <p className="text-xs text-gray-400 mb-3">AI flagged 3rd tailgating violation. Guard intercepted and verified intentional breach. Requesting immediate credential revocation.</p>
                     
                     <div className="flex space-x-2 border-t border-gray-800 pt-3">
-                      <button onClick={() => handleBlacklist(true)} className="flex-1 bg-red-900/50 hover:bg-red-900 text-red-300 border border-red-800 py-1.5 rounded text-xs font-bold transition">Approve (Revoke)</button>
+                      <button onClick={() => handleBlacklist(true)} className="flex-1 bg-red-900/50 hover:bg-red-900 text-red-300 border border-red-800 py-1.5 rounded text-xs font-bold transition">Revoke Access</button>
                       <button onClick={() => handleBlacklist(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 py-1.5 rounded text-xs transition">Reject</button>
                     </div>
                   </div>
+                  
                 ) : (
                   <div className="text-center py-8 animate-fadeIn">
                     <svg className="w-10 h-10 text-gray-700 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                    <p className="text-sm text-gray-500">All escalations resolved.</p>
+                    <p className="text-sm text-gray-500">All requests resolved.</p>
                   </div>
                 )}
               </div>
             </div>
 
             <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 shrink-0" style={{ boxShadow: '0 0 20px rgba(168, 85, 247, 0.15)' }}>
-              <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-2">Global Overrides</h2>
-              <p className="text-[10px] text-gray-500 mb-4 uppercase tracking-widest">Bypasses Tier-1 & Tier-2 Logic</p>
+              <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-2">Emergency Controls</h2>
+              <p className="text-[10px] text-gray-500 mb-4 uppercase tracking-widest">Bypasses Tier-1 & Tier-2</p>
               <button onClick={() => setLockdown(!lockdown)} className={`w-full font-bold py-3 px-4 rounded-lg transition flex justify-center items-center space-x-2 ${lockdown ? 'bg-red-600 text-white shadow-lg' : 'bg-red-950 text-red-400 border border-red-800 hover:bg-red-900'}`}>
                 <span>{lockdown ? '⚠️ CANCEL LOCKDOWN & RESTORE' : '🚨 INITIATE CAMPUS LOCKDOWN'}</span>
               </button>
@@ -159,7 +159,7 @@ export default function AdminTower({ onLogout }) {
 
           <div className="lg:col-span-2 bg-gray-900 rounded-xl border border-gray-800 flex flex-col h-full">
             <div className="p-4 border-b border-gray-800 flex justify-between items-center flex-wrap gap-3">
-              <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Identity Matrix Registry</h2>
+              <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Community Directory</h2>
               <div className="relative">
                 <input 
                   type="text" 
@@ -210,7 +210,7 @@ export default function AdminTower({ onLogout }) {
               <svg className="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"></path></svg>
               <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Priority Broadcast</h2>
             </div>
-            <p className="text-[10px] text-gray-500 mb-4 uppercase tracking-widest">Push notification to all resident nodes</p>
+            <p className="text-[10px] text-gray-500 mb-4 uppercase tracking-widest">Push notification to all residents</p>
             
             <form onSubmit={handleBroadcast} className="space-y-4 flex-1 flex flex-col">
               <textarea 
@@ -270,10 +270,10 @@ export default function AdminTower({ onLogout }) {
               </form>
 
               <div className="bg-gray-950 border border-gray-800 rounded-lg p-4 flex flex-col h-full min-h-[200px]">
-                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 border-b border-gray-800 pb-2">Generated Credentials</h3>
+                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3 border-b border-gray-800 pb-2">Account Credentials</h3>
                 
                 {!generatedCreds ? (
-                  <div className="flex-1 flex items-center justify-center text-sm text-gray-600 italic">Awaiting provisioning parameters...</div>
+                  <div className="flex-1 flex items-center justify-center text-sm text-gray-600 italic">Generate an account to view credentials...</div>
                 ) : (
                   <div className="flex-1 overflow-y-auto space-y-3 pr-2" style={{ maxHeight: '200px', scrollbarWidth: 'thin', scrollbarColor: '#374151 transparent' }}>
                     {generatedCreds.map((cred, idx) => (
