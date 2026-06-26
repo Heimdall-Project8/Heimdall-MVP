@@ -1,0 +1,21 @@
+_id,age,associated_credentials[0],family_members[0].rfid_token,family_members[1].rfid_token,family_members[0].relationship,family_members[1].relationship,flat_no,name,phone_number,role,status,trust_score
+res_100,42,rfid_token_hex_0x64,rfid_token_hex_0x64_spouse,rfid_token_hex_0x64_child_1,spouse,child,{B-100},John Das,+919672267480,resident,active,1
+res_101,30,rfid_token_hex_0x65,rfid_token_hex_0x65_child_1,,child,,{B-101},Rahul Patel,+918165821147,resident,active,1
+res_102,55,rfid_token_hex_0x66,rfid_token_hex_0x66_child_1,,child,,{A-102},Aarav Jones,+918578360528,resident,active,1
+res_103,53,rfid_token_hex_0x67,rfid_token_hex_0x67_spouse,,spouse,,{C-103},Ananya Kumar,+917619475674,resident,active,1
+res_104,52,rfid_token_hex_0x68,rfid_token_hex_0x68_spouse,,spouse,,{A-104},Aarav Verma,+917220848650,resident,active,1
+res_105,48,rfid_token_hex_0x69,rfid_token_hex_0x69_spouse,,spouse,,{A-105},Jane Patel,+918154617994,resident,active,1
+res_106,38,rfid_token_hex_0x6a,,,,,{C-106},John Joshi,+917731026809,resident,active,1
+res_107,47,rfid_token_hex_0x6b,rfid_token_hex_0x6b_spouse,,spouse,,{C-107},John Jones,+918005485306,resident,active,1
+res_108,36,rfid_token_hex_0x6c,rfid_token_hex_0x6c_spouse,,spouse,,{A-108},John Nair,+919373155677,resident,active,1
+res_109,31,rfid_token_hex_0x6d,rfid_token_hex_0x6d_spouse,,spouse,,{A-109},Vikram Verma,+917728323528,resident,active,1
+res_110,40,rfid_token_hex_0x6e,,,,,{B-110},Vikram Reddy,+917923196045,resident,active,1
+res_111,29,rfid_token_hex_0x6f,rfid_token_hex_0x6f_spouse,,spouse,,{B-111},Rahul Verma,+917723172528,resident,active,1
+res_112,35,rfid_token_hex_0x70,,,,,{B-112},John Jones,+916314538709,resident,active,1
+res_113,36,rfid_token_hex_0x71,rfid_token_hex_0x71_spouse,,spouse,,{B-113},David Reddy,+919213306181,resident,active,1
+res_114,35,rfid_token_hex_0x72,,,,,{B-114},Ananya Kumar,+917066394545,resident,active,1
+res_115,43,rfid_token_hex_0x73,,,,,{B-115},Jane Nair,+916627400495,resident,active,1
+res_116,50,rfid_token_hex_0x74,,,,,{B-116},Amit Das,+919743452870,resident,active,1
+res_117,44,rfid_token_hex_0x75,rfid_token_hex_0x75_spouse,,spouse,,{A-117},Sneha Reddy,+916809027436,resident,active,1
+res_118,35,rfid_token_hex_0x76,,,,,{A-118},Aarav Reddy,+917589459849,resident,active,1
+res_119,36,rfid_token_hex_0x77,,,,,{B-119},Priya Sharma,+917817089085,resident,active,1
