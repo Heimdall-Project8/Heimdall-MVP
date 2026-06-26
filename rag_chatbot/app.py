@@ -2,6 +2,7 @@ import os
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from langchain_chroma import Chroma
@@ -11,6 +12,17 @@ from langchain_groq import ChatGroq
 load_dotenv()
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 embedding_model = HuggingFaceEmbeddings(
     model_name="BAAI/bge-small-en-v1.5"
@@ -54,7 +66,6 @@ Rules:
   "I couldn't find this information in the community handbook."
 - Be concise and helpful.
 - Do not mention policies that are not in the context.
-- At the end of your answer, do not invent sources. Sources are handled separately.
 
 Context:
 
@@ -63,7 +74,6 @@ Context:
 Question:
 {req.question}
 
-Always mention the source document.
 """
 
     response = llm.invoke(prompt)

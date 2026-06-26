@@ -19,26 +19,50 @@ export default function ResidentBot() {
 
     const userMsg = { id: Date.now(), sender: 'user', text: input };
     setMessages(prev => [...prev, userMsg]);
-    // const currentQuery = input;
+    
+    const currentQuery = input;
     setInput('');
     setIsTyping(true);
 
-    // 🔌 BACKEND TEAM: Replace this mock response block with your actual RAG fetch API call
-    // Example:
-    // try {
-    //   const res = await fetch('/api/rag-chat', { method: 'POST', body: JSON.stringify({ query: currentQuery }) });
-    //   const data = await res.json();
-    //   setMessages(prev => [...prev, { id: Date.now(), sender: 'bot', text: data.reply }]);
-    // } catch (err) { ... }
+    try {
+      const response = await fetch("http://localhost:8001/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          question: currentQuery
+        })
+      });
 
-    setTimeout(() => {
+      if (!response.ok) {
+        throw new Error("Failed to fetch");
+      }
+
+      const data = await response.json();
+
+      setMessages(prev => [
+        ...prev,
+        {
+          id: Date.now(),
+          sender: "bot",
+          text: data.answer || data.response || data.result || "Reply received, but JSON key name mismatched."
+        }
+      ]);
+
+    } catch (err) {
+      console.error("AI Connection Error:", err);
+      setMessages(prev => [
+        ...prev,
+        {
+          id: Date.now(),
+          sender: "bot",
+          text: "Unable to contact Heimdall AI."
+        }
+      ]);
+    } finally {
       setIsTyping(false);
-      setMessages(prev => [...prev, { 
-        id: Date.now(), 
-        sender: 'bot', 
-        text: `[RAG Retrieval Simulated]: Based on Section 4.2 of the Community Guidelines, visitors must park strictly in designated yellow bays. Your guest pass remains valid for the allotted timeframe.` 
-      }]);
-    }, 1500);
+    }
   };
 
   return (
