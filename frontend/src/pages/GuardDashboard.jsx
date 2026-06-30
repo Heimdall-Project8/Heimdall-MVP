@@ -2,8 +2,11 @@ import { useState, useEffect, useRef } from 'react';
 
 export default function GuardDashboard({ onLogout }) {
   const [alarmActive, setAlarmActive] = useState(false);
+  const [alertData, setAlertData] = useState(null);
   const [intercomState, setIntercomState] = useState('idle'); 
   const [flatNumber, setFlatNumber] = useState('');
+  const [callDuration, setCallDuration] = useState(0);
+  const [callId, setCallId] = useState(null);
   const [feed, setFeed] = useState([
     { id: 1, time: '10:14:05', loc: 'LOBBY_ENTRANCE', type: 'Badge_Swipe', status: 'SUCCESS', color: 'text-emerald-500' },
     { id: 2, time: '10:12:40', loc: 'NORTH_GATE', type: 'Camera_Scan', status: 'SUCCESS (0.98)', color: 'text-emerald-500' }
@@ -15,17 +18,16 @@ export default function GuardDashboard({ onLogout }) {
   const [feedback, setFeedback] = useState('');
 
   // Active Security Guard Profile State
+  
   const [currentGuard] = useState({
-    name: "Officer J. Vance",
-    badgeId: "HEI-9042",
-    station: "Gate House Alpha"
-  });
+  name: "Officer J. Vance",
+  guardId: "GUARD001",
+  badgeId: "HEI-9042",
+  station: "Gate House Alpha"
+});
 
   // Delivery Pre-Approval State
-  const [preApprovals, setPreApprovals] = useState([
-    { id: 1, resident: "John Doe (A-402)", courier: "Amazon", window: "2–4 PM", status: "pending" },
-    { id: 2, resident: "Sarah Jenkins (B-105)", courier: "FedEx", window: "Morning (8 AM - 12 PM)", status: "pending" }
-  ]);
+  const [preApprovals, setPreApprovals] = useState([]);
 
   useEffect(() => {
     const gates = ["NORTH_GATE", "SOUTH_GATE", "LOBBY_ENTRANCE", "SERVICE_GATE"];
@@ -51,44 +53,238 @@ export default function GuardDashboard({ onLogout }) {
   useEffect(() => {
     feedEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [feed]);
+  
+  const simulateAlert = async () => {
+  try {
+    const response = await fetch("http://127.0.0.1:8000/security/simulate-alert");
 
-  const initiateResolution = (action) => {
-    setActionTaken(action);
-    setResolutionStep('feedback');
+    const data = await response.json();
+
+    console.log("Alert received:", data);
+
+    console.log(data.locationHistory);
+
+    console.log(data);
+
+    setAlertData(data);
+
+    setAlarmActive(true);
+
+  } catch (error) {
+    console.error("Failed to fetch alert:", error);
+  }
+};
+
+    const initiateResolution = (decision, action) => {
+    setActionTaken({
+        decision,
+        action
+    });
+
+    setResolutionStep("feedback");
+};
+
+  const submitFeedback = async (e) => {
+  e.preventDefault();
+
+  try {
+    let url = "";
+let body = {};
+
+if (actionTaken.action === "BLACKLIST_REQUESTED") {
+
+  url = "http://127.0.0.1:8000/blacklist/request";
+
+  body = {
+    alertId: alertData.alertId,
+    id: alertData.profile.residentId,
+    name: alertData.profile.name,
+    reason: feedback,
+    requestedBy: currentGuard.guardId,
   };
 
-  const submitFeedback = (e) => {
-    e.preventDefault();
-    setResolutionStep('submitted');
+} else {
+
+  url = "http://127.0.0.1:8000/security/alert-action";
+
+  body = {
+    alertId: alertData.alertId,
+    guardId: currentGuard.guardId,
+    decision: actionTaken.decision,
+    action: actionTaken.action,
+    reason: feedback,
+  };
+
+}
+
+console.log(body);
+const response = await fetch(url, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+  },
+  body: JSON.stringify(body),
+});
+
+    const result = await response.json();
+
+    console.log("Saved:", result);
+
+    setResolutionStep("submitted");
+
     setTimeout(() => {
       setAlarmActive(false);
       setResolutionStep(null);
-      setFeedback('');
-      if (actionTaken === 'BLACKLIST') {
-        alert("A formal Blacklist Request has been forwarded to the Admin Control Tower.");
-      }
+      setFeedback("");
     }, 2500);
-  };
 
-  const handleCall = (e) => {
-    e.preventDefault();
-    if (!flatNumber) return;
-    setIntercomState('calling');
-    setTimeout(() => {
-      setIntercomState('connected');
-    }, 3000);
-  };
+  }catch (error) {
+  console.error("Fetch Error:", error);
+}
+};          
 
-  const endCall = () => {
-    setIntercomState('idle');
-    setFlatNumber('');
-  };
+  const handleCall = async (e) => {
+  console.log("handleCall fired");
+  e.preventDefault();
 
-  const handleAllowEntry = (id) => {
-    setPreApprovals(prev => 
-      prev.map(item => item.id === id ? { ...item, status: "verified" } : item)
+  if (!flatNumber) return;
+
+  try {
+    const response = await fetch("http://127.0.0.1:8000/intercom/call", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        flatNo: flatNumber,
+        requestedBy: currentGuard.guardId,
+      }),
+    });
+    console.log("Response received:", response);
+
+    const result = await response.json();
+    console.log("Backend Response:", result);
+    console.log("Reached after backend");
+
+    const currentCallId = result.call_id;
+    setCallId(result.call_id);
+
+    console.log("Call created:", result);
+    console.log("Changing state to calling");
+
+    setIntercomState("calling");
+    setCallDuration(0);
+
+    setTimeout(async () => {
+
+  await fetch("http://127.0.0.1:8000/intercom/connect", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      flatNo: flatNumber,
+      requestedBy: currentGuard.guardId,
+      call_id: currentCallId,
+    }),
+  });
+
+  setIntercomState("connected");
+
+}, 3000);
+
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+  const endCall = async () => {
+  try {
+    const response = await fetch("http://127.0.0.1:8000/intercom/end-call", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+    flatNo: flatNumber,
+    requestedBy: currentGuard.guardId,
+    call_id: callId,
+}),
+    });
+
+    const result = await response.json();
+
+    console.log("Call ended:", result);
+
+    setIntercomState("idle");
+    setCallDuration(0);
+    setFlatNumber("");
+
+  } catch (error) {
+    console.error("Failed to end call:", error);
+  }
+};
+
+  const handleAllowEntry = async (deliveryId) => {
+  try {
+    const response = await fetch(
+      "http://127.0.0.1:8000/delivery/allow-entry",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          delivery_id: deliveryId,
+        }),
+      }
     );
+
+    const result = await response.json();
+
+    console.log(result);
+
+    // Refresh the list after updating
+    const deliveries = await fetch(
+      "http://127.0.0.1:8000/delivery/pending"
+    );
+
+    const data = await deliveries.json();
+
+    setPreApprovals(data);
+
+  } catch (error) {
+    console.error(error);
+  }
+};
+
+  useEffect(() => {
+  let timer;
+
+  if (intercomState === "connected") {
+    timer = setInterval(() => {
+      setCallDuration((prev) => prev + 1);
+    }, 1000);
+  }
+
+  return () => {
+    clearInterval(timer);
   };
+}, [intercomState]);
+
+useEffect(() => {
+  console.log("Intercom State:", intercomState);
+}, [intercomState]);
+
+useEffect(() => {
+  fetch("http://127.0.0.1:8000/delivery/pending")
+    .then((res) => res.json())
+    .then((data) => {
+      console.log("Pending Deliveries:", data);
+      setPreApprovals(data);
+    })
+    .catch((err) => console.error("Error fetching deliveries:", err));
+}, []);
 
   return (
     <div className="bg-gray-950 min-h-screen font-sans text-gray-200 h-screen overflow-hidden flex flex-col w-full">
@@ -128,7 +324,7 @@ export default function GuardDashboard({ onLogout }) {
                 <svg className="w-16 h-16 text-gray-700 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                 <h3 className="text-xl font-bold text-gray-400">Perimeter Stream Stable</h3>
                 <p className="text-sm text-gray-500 mt-1">Autonomous AI investigation queue is currently empty.</p>
-                <button onClick={() => setAlarmActive(true)} className="mt-8 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition shadow-lg border border-blue-500">Simulate AI Trigger</button>
+                <button onClick={simulateAlert} className="mt-8 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition shadow-lg border border-blue-500">Simulate AI Trigger</button>
               </div>
             ) : resolutionStep === 'feedback' ? (
               <div className="animate-fadeIn block py-4">
@@ -145,8 +341,19 @@ export default function GuardDashboard({ onLogout }) {
                 <form onSubmit={submitFeedback} className="space-y-4">
                   <div>
                     <label className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-widest">
-                      Action Logged: <span className={actionTaken === 'DISMISSED' ? 'text-blue-400 font-bold' : 'text-red-400 font-bold'}>{actionTaken}</span>
-                    </label>
+  Action Logged:
+  <span
+    className={
+      actionTaken?.decision === "DISMISSED"
+        ? "text-blue-400 font-bold"
+        : "text-red-400 font-bold"
+    }
+  >
+    {`${actionTaken?.decision}${
+      actionTaken?.action ? ` (${actionTaken.action})` : ""
+    }`}
+  </span>
+</label>
                     <textarea 
                       required
                       value={feedback}
@@ -179,8 +386,8 @@ export default function GuardDashboard({ onLogout }) {
                 <div className="flex justify-between items-start border-b border-gray-800 pb-4 mb-4">
                   <div>
                     <span className="px-2 py-1 bg-red-900/50 text-red-400 border border-red-800 text-xs font-mono rounded font-bold uppercase tracking-wide mr-2">CRITICAL</span>
-                    <h2 className="text-xl font-bold text-white inline-block mt-2 sm:mt-0">IDENTITY_THEFT_SUSPECT</h2>
-                    <p className="text-sm text-gray-400 mt-1 font-mono">Location: server_room_door</p>
+                    <h2 className="text-xl font-bold text-white inline-block mt-2 sm:mt-0">{alertData?.type}</h2>
+                    <p className="text-sm text-gray-400 mt-1 font-mono">Location: {alertData?.location}r</p>
                   </div>
                   <span className="text-xs font-mono text-gray-500 bg-gray-950 px-2 py-1 rounded border border-gray-800">Just Now</span>
                 </div>
@@ -188,17 +395,17 @@ export default function GuardDashboard({ onLogout }) {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
                   <div className="bg-gray-950 p-3 rounded-lg border border-gray-800">
                     <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Profile Identity</p>
-                    <p className="text-sm font-bold text-white mt-1">Bob Vance (res_250)</p>
-                    <p className="text-xs text-yellow-400 mt-0.5">Trust: 70 | Past Infractions: 2</p>
+                    <p className="text-sm font-bold text-white mt-1">{alertData?.profile?.name}</p>
+                    <p className="text-xs text-yellow-400 mt-0.5">Trust: {alertData?.profile?.trustScore} | Past Infractions: {alertData?.profile?.pastInfractions}</p>
                   </div>
                   <div className="bg-gray-950 p-3 rounded-lg border border-gray-800">
                     <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Location History</p>
-                    <p className="text-sm font-bold text-white mt-1">North Gate</p>
-                    <p className="text-xs text-gray-400 mt-0.5">0 incidents today</p>
+                    <p className="text-sm font-bold text-white mt-1">{alertData?.locationHistory?.lastLocation}</p>
+                    <p className="text-xs text-gray-400 mt-0.5">{alertData?.locationHistory?.incidentsToday} incidents today</p>
                   </div>
                   <div className="bg-gray-950 p-3 rounded-lg border border-gray-800">
                     <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">2Hr Global Sync</p>
-                    <p className="text-sm font-bold text-white mt-1">Clear</p>
+                    <p className="text-sm font-bold text-white mt-1"> {alertData?.globalSync?.status}</p>
                     <p className="text-xs text-gray-400 mt-0.5">No concurrent anomalies</p>
                   </div>
                 </div>
@@ -206,18 +413,18 @@ export default function GuardDashboard({ onLogout }) {
                 <div className="mb-5">
                   <h4 className="text-xs text-blue-400 uppercase tracking-widest font-bold mb-2">AI Diagnostic Rationale</h4>
                   <div className="bg-gray-950 p-4 rounded-lg border-l-4 border-blue-500 text-sm text-gray-300 leading-relaxed">
-                    Analyzing telemetry vectors... Tailgating anomaly detected. Subject Bob Vance swiped access card, but perimeter cameras detected an unauthorized individual following closely behind. Given Bob's history of past infractions, there is a high probability of deliberate rule circumvention.
+                    {alertData?.reason}
                   </div>
                 </div>
 
                 <div className="flex flex-wrap justify-between items-center pt-4 border-t border-gray-800 gap-3">
-                  <button onClick={() => initiateResolution('BLACKLIST')} className="px-4 py-2 bg-purple-900/40 hover:bg-purple-900/60 text-purple-300 border border-purple-800 rounded-lg text-sm transition flex items-center space-x-2">
+                  <button onClick={() =>initiateResolution("CONFIRMED","BLACKLIST_REQUESTED")} className="px-4 py-2 bg-purple-900/40 hover:bg-purple-900/60 text-purple-300 border border-purple-800 rounded-lg text-sm transition flex items-center space-x-2">
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                     <span>Request Admin Blacklist</span>
                   </button>
                   <div className="flex space-x-3">
-                    <button onClick={() => initiateResolution('DISMISSED')} className="px-5 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition border border-gray-700">Ignore Alert</button>
-                    <button onClick={() => initiateResolution('DISPATCHED')} className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-sm transition shadow-lg">Confirm Threat & Intercept</button>
+                    <button onClick={() =>initiateResolution("DISMISSED",null)} className="px-5 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition border border-gray-700">Ignore Alert</button>
+                    <button onClick={() =>initiateResolution("CONFIRMED","INTERCEPT")} className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-sm transition shadow-lg">Confirm Threat & Intercept</button>
                   </div>
                 </div>
               </div>
@@ -259,7 +466,12 @@ export default function GuardDashboard({ onLogout }) {
                     <span className={`relative inline-flex rounded-full h-3 w-3 ${intercomState === 'calling' ? 'bg-blue-500' : 'bg-emerald-500'}`}></span>
                   </span>
                   <span className={`text-sm font-mono ${intercomState === 'calling' ? 'text-blue-400' : 'text-emerald-400'}`}>
-                    {intercomState === 'calling' ? `Dialing Flat ${flatNumber.toUpperCase()}...` : `Connected to ${flatNumber.toUpperCase()} (00:01)`}
+                    {intercomState === 'calling'
+  ? `Dialing Flat ${flatNumber.toUpperCase()}...`
+  : `Connected to ${flatNumber.toUpperCase()} (${String(
+      Math.floor(callDuration / 60)
+    ).padStart(2, "0")}:${String(callDuration % 60).padStart(2, "0")})`
+}
                   </span>
                 </div>
                 <button type="button" onClick={endCall} className="text-xs bg-red-900/50 text-red-400 hover:bg-red-900 px-3 py-1 rounded border border-red-800 transition">End Call</button>
@@ -281,35 +493,53 @@ export default function GuardDashboard({ onLogout }) {
                 <p className="text-xs text-gray-500 italic text-center py-4">No active delivery pre-approvals listed.</p>
               ) : (
                 preApprovals.map((delivery) => (
-                  <div 
-                    key={delivery.id} 
-                    className={`p-4 rounded-xl border transition-all duration-300 ${delivery.status === 'verified' ? 'bg-gray-950/40 border-emerald-900/40 opacity-60' : 'bg-gray-950 border-gray-800'}`}
-                  >
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="mt-2.5 space-y-1 text-xs">
-                          <p className="text-gray-400 font-sans">Expected: <strong className="text-white font-mono">{delivery.window}</strong></p>
-                          <p className="text-gray-400 font-sans">Courier: <strong className="text-blue-400 font-sans">{delivery.courier}</strong></p>
-                          <p className="text-[10px] text-gray-500 font-sans">Destination: {delivery.resident}</p>
-                        </div>
-                      </div>
+  <div
+    key={delivery.delivery_id}
+    className={`p-4 rounded-xl border transition-all duration-300 ${
+      delivery.status === "verified"
+        ? "bg-gray-950/40 border-emerald-900/40 opacity-60"
+        : "bg-gray-950 border-gray-800"
+    }`}
+  >
+    <div className="flex justify-between items-start">
+      <div>
+        <div className="mt-2.5 space-y-1 text-xs">
+          <p className="text-gray-400 font-sans">
+            Expected:{" "}
+            <strong className="text-white font-mono">
+              {delivery.arrival_window}
+            </strong>
+          </p>
 
-                      {delivery.status === 'pending' ? (
-                        <button
-                          onClick={() => handleAllowEntry(delivery.id)}
-                          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition shadow-md border border-emerald-500 shrink-0 self-center"
-                        >
-                          Allow Entry
-                        </button>
-                      ) : (
-                        <span className="text-xs font-mono text-emerald-500 bg-emerald-950/20 px-3 py-1 rounded border border-emerald-900/50 self-center">
-                          PASSED_GATE
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                ))
-              )}
+          <p className="text-gray-400 font-sans">
+            Courier:{" "}
+            <strong className="text-blue-400 font-sans">
+              {delivery.delivery_service}
+            </strong>
+          </p>
+
+          <p className="text-[10px] text-gray-500 font-sans">
+            Destination: {delivery.resident_flat}
+          </p>
+        </div>
+      </div>
+
+      {delivery.status === "active" ? (
+        <button
+          onClick={() => handleAllowEntry(delivery.delivery_id)}
+          className="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition shadow-md border border-emerald-500 shrink-0 self-center"
+        >
+          Allow Entry
+        </button>
+      ) : (
+        <span className="text-xs font-mono text-emerald-500 bg-emerald-950/20 px-3 py-1 rounded border border-emerald-900/50 self-center">
+          PASSED_GATE
+        </span>
+      )}
+    </div>
+  </div>
+))
+)}
             </div>
           </div>
         </div>
