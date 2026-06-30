@@ -14,6 +14,8 @@ export default function ResidentPortal({ onLogout }) {
   const [vehicleInput, setVehicleInput] = useState("");
   const [qrPassId, setQrPassId] = useState(null);
   const [showQrModal, setShowQrModal] = useState(false);
+  const [announcements, setAnnouncements] = useState([]);
+  const [currentAnnouncement, setCurrentAnnouncement] = useState(0);
   const user = JSON.parse(localStorage.getItem("user"));
   const residentId = user?.resident?.id;
   const today = new Date().toISOString().split("T")[0];
@@ -293,6 +295,18 @@ export default function ResidentPortal({ onLogout }) {
     }
   };
 
+  const nextAnnouncement = () => {
+    setCurrentAnnouncement((prev) =>
+      prev === announcements.length - 1 ? 0 : prev + 1
+    );
+  };
+
+  const prevAnnouncement = () => {
+    setCurrentAnnouncement((prev) =>
+      prev === 0 ? announcements.length - 1 : prev - 1
+    );
+  };
+
   const removeVehicle = async (vehicle) => {
     try {
       const response = await fetch(
@@ -321,6 +335,28 @@ export default function ResidentPortal({ onLogout }) {
       alert(err.message);
     }
   };
+
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        const response = await fetch(
+          "http://127.0.0.1:8000/resident/announcements"
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch announcements");
+        }
+
+        setAnnouncements(data.announcements || []);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchAnnouncements();
+  }, []);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -443,9 +479,36 @@ export default function ResidentPortal({ onLogout }) {
       <main className="p-6 max-w-7xl mx-auto">
         <div className="bg-blue-900/30 border border-blue-800/60 text-blue-200 px-4 py-3 rounded-lg flex items-start sm:items-center space-x-3 mb-6 shadow-lg animate-fadeIn">
           <svg className="w-5 h-5 text-blue-400 shrink-0 mt-0.5 sm:mt-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-          <span className="text-sm font-medium">
-            <strong className="text-blue-300">System Announcement:</strong> Heimdall AI network maintenance scheduled for tonight at 02:00 AM. Expect brief portal interruptions.
-          </span>
+          {announcements.length === 0 ? (
+            <span className="text-sm font-medium text-gray-400">
+              No recent announcements
+            </span>
+          ) : (
+            <div className="flex items-center justify-between w-full gap-4">
+              <span className="text-sm font-medium flex-1">
+                <strong className="text-blue-300">
+                  {announcements[currentAnnouncement]?.title}:
+                </strong>{" "}
+                {announcements[currentAnnouncement]?.message}
+              </span>
+
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={prevAnnouncement}
+                  className="text-blue-400 hover:text-white text-xs px-2"
+                >
+                  ↑
+                </button>
+
+                <button
+                  onClick={nextAnnouncement}
+                  className="text-blue-400 hover:text-white text-xs px-2"
+                >
+                  ↓
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

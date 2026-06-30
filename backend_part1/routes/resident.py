@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from database import db
+from datetime import datetime, timedelta
 
 router = APIRouter()
 
@@ -156,6 +157,37 @@ async def report_lost_card(resident_id: str):
         }
     )
 
+    await db.security_alerts.insert_one({
+        "type": "lost_card",
+        "resident_id": resident_id,
+        "badge": resident["badge"],
+        "message": "Lost card reported",
+        "resolved": False
+    })
+
     return {
         "message": "Card blocked successfully. Security notified."
+    }
+
+
+@router.get("/announcements")
+async def get_recent_announcements():
+
+    cutoff = datetime.now() - timedelta(hours=24)
+
+    announcements = await db.announcements_collection.find({
+        "created_at": {"$gte": cutoff}
+    }).sort("created_at", -1).to_list(length=50)
+
+    result = []
+
+    for ann in announcements:
+        result.append({
+            "title": ann["title"],
+            "message": ann["message"],
+            "created_at": ann["created_at"]
+        })
+
+    return {
+        "announcements": result
     }
