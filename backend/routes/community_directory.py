@@ -1,5 +1,4 @@
 from fastapi import APIRouter, HTTPException
-
 from database import db
 
 router = APIRouter()
@@ -24,8 +23,10 @@ async def get_community_directory():
             "id": resident["id"],
             "name": resident.get("full_name") or resident["id"],
             "role": "Resident",
-            "score": 100,
-            "status": "Active"
+            "score": resident.get("score", 100),
+            "status": "Active",
+            "is_initialized": resident.get("is_initialized", False),
+            "card_status": resident.get("card_status", "active")
         })
 
     # Security Guards
@@ -34,8 +35,10 @@ async def get_community_directory():
             "id": guard["id"],
             "name": guard.get("full_name") or guard["id"],
             "role": "Security",
-            "score": 100,
-            "status": "Active"
+            "score": guard.get("score", 100),
+            "status": "Active",
+            "is_initialized": guard.get("is_initialized", False),
+            "card_status": guard.get("card_status", "active")
         })
 
     return community

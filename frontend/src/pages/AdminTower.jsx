@@ -10,11 +10,27 @@ export default function AdminTower({ onLogout }) {
   const [badges, setBadges] = useState(['']);
   const [numSec, setNumSec] = useState(1);
   const [generatedCreds, setGeneratedCreds] = useState(null);
+  const [broadcastTitle, setBroadcastTitle] = useState(''); 
   const [broadcastMsg, setBroadcastMsg] = useState('');
   const [broadcastSent, setBroadcastSent] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [pendingRequest, setPendingRequest] = useState(true);
+  const [directoryRoleFilter, setDirectoryRoleFilter] = useState('All'); 
   const [users, setUsers] = useState([]);
+
+  const [pendingRequests, setPendingRequests] = useState([
+    { id: 'res_250', name: 'Bob Vance', details: 'AI flagged 3rd tailgating violation. Guard intercepted and verified intentional breach. Requesting immediate credential revocation.', origin: 'Unit Alpha' },
+    { id: 'res_104', name: 'Michael Scott', details: 'Access card pattern anomaly detected. Entity logged entering North Gate and South Gate within 30 seconds.', origin: 'System Kernel' },
+    { id: 'res_882', name: 'Dwight Schrute', details: 'Manual override log warning requested. Override activated on perimeter vault perimeter sensor asset.', origin: 'Watch Tower 2' }
+  ]);
+
+  const [alerts, setAlerts] = useState([
+    { id: 1, severity: 'HIGH', message: 'Gate 3 Relay Timeout anomaly recorded. Attempting auto-recovery handshake.', timestamp: '10 mins ago', color: 'border-red-500 text-red-400 bg-red-950/20' },
+    { id: 2, severity: 'MEDIUM', message: 'Tailgating validation warning triggered at Lobby Turnstile.', timestamp: '24 mins ago', color: 'border-yellow-500 text-yellow-400 bg-yellow-950/20' },
+    { id: 3, severity: 'LOW', message: 'System maintenance sync scheduled for tonight at 02:00 AM.', timestamp: '1 hr ago', color: 'border-blue-500 text-blue-400 bg-blue-950/20' },
+    { id: 4, severity: 'HIGH', message: 'Gate 3 Relay Timeout anomaly recorded. Attempting auto-recovery handshake.', timestamp: '10 mins ago', color: 'border-red-500 text-red-400 bg-red-950/20' },
+    { id: 5, severity: 'MEDIUM', message: 'Tailgating validation warning triggered at Lobby Turnstile.', timestamp: '24 mins ago', color: 'border-yellow-500 text-yellow-400 bg-yellow-950/20' },
+    { id: 6, severity: 'LOW', message: 'System maintenance sync scheduled for tonight at 02:00 AM.', timestamp: '1 hr ago', color: 'border-blue-500 text-blue-400 bg-blue-950/20' }
+  ]);
 
   const fetchDirectory = async () => {
     try {
@@ -33,12 +49,10 @@ export default function AdminTower({ onLogout }) {
           role: inferredRole,
           score: item.score !== undefined ? item.score : 100,
           status: item.status || 'Active',
+          isInitialized: item.is_initialized, // Track account activation status from database
+          cardStatus: item.card_status || 'active', // Track card block status
           color: item.score === 0 ? 'text-red-500' : 'text-emerald-400',
-          roleColor: isSecurity 
-            ? 'bg-gray-800 text-gray-400' 
-            : inferredRole === 'Admin' 
-              ? 'bg-purple-900/30 text-purple-400 border border-purple-800/50' 
-              : 'bg-gray-800 text-gray-400'
+          roleColor: isSecurity ? 'bg-gray-800 text-gray-400' : 'bg-gray-800'
         };
       });
       setUsers(mappedUsers);
@@ -51,10 +65,11 @@ export default function AdminTower({ onLogout }) {
     fetchDirectory();
   }, []);
 
-  const filteredUsers = users.filter(u => 
-    u.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    u.id.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredUsers = users.filter(u => {
+    const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase()) || u.id.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesFilter = directoryRoleFilter === 'All' || u.role === directoryRoleFilter;
+    return matchesSearch && matchesFilter;
+  });
 
   const handleBlacklist = async (residentId) => {
     if (!residentId) return;
@@ -65,7 +80,7 @@ export default function AdminTower({ onLogout }) {
       if (response.ok) {
         alert(`Blacklist Approved. Credentials for ${residentId} have been permanently revoked.`);
         fetchDirectory();
-        setPendingRequest(false);
+        setPendingRequests(pendingRequests.filter(req => req.id !== residentId));
       } else {
         const data = await response.json();
         alert(data.detail || "Revocation request rejected by server.");
@@ -73,6 +88,11 @@ export default function AdminTower({ onLogout }) {
     } catch (err) {
       alert("Network failure resolving blacklist sequence.");
     }
+  };
+
+  const handleRejectRequestLocal = (reqId) => {
+    alert(`Request Rejected. Informing origin node terminal.`);
+    setPendingRequests(pendingRequests.filter(req => req.id !== reqId));
   };
 
   const handleNumResidentsChange = (e) => {
@@ -151,7 +171,7 @@ export default function AdminTower({ onLogout }) {
         method: 'POST',
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: 'System Priority Bulletin',
+          title: broadcastTitle,
           message: broadcastMsg
         })
       });
@@ -162,6 +182,7 @@ export default function AdminTower({ onLogout }) {
       }
 
       setBroadcastSent(true);
+      setBroadcastTitle('');
       setBroadcastMsg('');
       setTimeout(() => setBroadcastSent(false), 3000);
 
@@ -186,6 +207,25 @@ export default function AdminTower({ onLogout }) {
       }
     } catch (err) {
       alert('Error connection timeout syncing delete instruction.');
+    }
+  };
+
+  const handleUnblockCard = async (userId) => {
+    try {
+      const response = await fetch(`${API}/resident/unblock-card/${userId}`, {
+        method: 'POST',
+        headers: { "Content-Type": "application/json" }
+      });
+
+      if (response.ok) {
+        alert(`Access Card for ${userId} successfully restored to Active.`);
+        fetchDirectory();
+      } else {
+        const data = await response.json();
+        alert(data.detail || 'Failed to unblock target access card.');
+      }
+    } catch (err) {
+      alert('Network communication error restoring card status.');
     }
   };
 
@@ -226,25 +266,27 @@ export default function AdminTower({ onLogout }) {
             <div className="bg-gray-900 rounded-xl border border-gray-800 flex-1 flex flex-col">
               <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-950/30">
                 <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Pending Requests</h2>
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${pendingRequest ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-400'}`}>
-                  {pendingRequest ? '1 Pending' : '0 Pending'}
+                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${pendingRequests.length > 0 ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-400'}`}>
+                  {pendingRequests.length} Pending
                 </span>
               </div>
               
-              <div className="p-4 space-y-4">
-                {pendingRequest ? (
-                  <div className="bg-gray-950 border border-gray-800 rounded-lg p-4 animate-fadeIn">
-                    <div className="flex justify-between items-start mb-2">
-                      <span className="text-[10px] text-gray-500">From: Unit Alpha</span>
+              <div className="p-4 space-y-4 overflow-y-auto max-h-[340px]" style={{ scrollbarWidth: 'thin', scrollbarColor: '#374151 transparent' }}>
+                {pendingRequests.length > 0 ? (
+                  pendingRequests.map((req) => (
+                    <div key={req.id} className="bg-gray-950 border border-gray-800 rounded-lg p-4 animate-fadeIn space-y-2">
+                      <div className="flex justify-between items-start">
+                        <span className="text-[10px] text-gray-500">From: {req.origin}</span>
+                      </div>
+                      <h3 className="text-sm font-bold text-white mb-1">Subject: {req.name} ({req.id})</h3>
+                      <p className="text-xs text-gray-400 mb-3">{req.details}</p>
+                      
+                      <div className="flex space-x-2 border-t border-gray-800 pt-3">
+                        <button onClick={() => handleBlacklist(req.id)} className="flex-1 bg-red-900/50 hover:bg-red-900 text-red-300 border border-red-800 py-1.5 rounded text-xs font-bold transition">Revoke Access</button>
+                        <button onClick={() => handleRejectRequestLocal(req.id)} className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 py-1.5 rounded text-xs transition">Reject</button>
+                      </div>
                     </div>
-                    <h3 className="text-sm font-bold text-white mb-1">Subject: Bob Vance (res_250)</h3>
-                    <p className="text-xs text-gray-400 mb-3">AI flagged 3rd tailgating violation. Guard intercepted and verified intentional breach. Requesting immediate credential revocation.</p>
-                    
-                    <div className="flex space-x-2 border-t border-gray-800 pt-3">
-                      <button onClick={() => handleBlacklist("res_250")} className="flex-1 bg-red-900/50 hover:bg-red-900 text-red-300 border border-red-800 py-1.5 rounded text-xs font-bold transition">Revoke Access</button>
-                      <button onClick={() => setPendingRequest(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 py-1.5 rounded text-xs transition">Reject</button>
-                    </div>
-                  </div>
+                  ))
                 ) : (
                   <div className="text-center py-8 animate-fadeIn">
                     <svg className="w-10 h-10 text-gray-700 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
@@ -253,65 +295,25 @@ export default function AdminTower({ onLogout }) {
                 )}
               </div>
             </div>
-
-            <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 shrink-0">
-              <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-2">Emergency Controls</h2>
-              <p className="text-[10px] text-gray-500 mb-4 uppercase tracking-widest">Bypasses Tier-1 & Tier-2</p>
-              <button onClick={() => setLockdown(!lockdown)} className={`w-full font-bold py-3 px-4 rounded-lg transition flex justify-center items-center space-x-2 ${lockdown ? 'bg-red-600 text-white shadow-lg' : 'bg-red-950 text-red-400 border border-red-800 hover:bg-red-900'}`}>
-                <span>{lockdown ? '⚠️ CANCEL LOCKDOWN & RESTORE' : '🚨 INITIATE CAMPUS LOCKDOWN'}</span>
-              </button>
-            </div>
           </div>
 
-          {/* Community Directory */}
+          {/* Alerts box panel component */}
           <div className="lg:col-span-2 bg-gray-900 rounded-xl border border-gray-800 flex flex-col h-full">
-            <div className="p-4 border-b border-gray-800 flex justify-between items-center flex-wrap gap-3">
-              <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Community Directory</h2>
-              <div className="relative">
-                <input 
-                  type="text" 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search ID or Name..." 
-                  className="pl-8 pr-3 py-1.5 bg-gray-950 border border-gray-700 rounded text-sm text-white focus:outline-none focus:border-purple-500 w-full sm:w-64 transition"
-                />
-                <svg className="w-4 h-4 text-gray-500 absolute left-2.5 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
-              </div>
+            <div className="p-4 border-b border-gray-800 flex justify-between items-center">
+              <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">System Alerts Log</h2>
+              <span className="text-xs bg-green-800 text-gray-400 px-2 py-1 rounded border border-gray-700">Live</span>
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-gray-300 min-w-[600px]">
-                <thead className="text-xs text-gray-500 uppercase border-b border-gray-800 bg-gray-950/50">
-                  <tr><th className="py-3 px-4 font-medium">User Profile</th><th className="py-3 px-4 font-medium">Role</th><th className="py-3 px-4 font-medium">Score</th><th className="py-3 px-4 font-medium text-right">Action</th></tr>
-                </thead>
-                <tbody className="font-mono text-xs divide-y divide-gray-800">
-                  {filteredUsers.length > 0 ? filteredUsers.map((u) => (
-                    <tr key={`${u.role}-${u.id}`} className="hover:bg-gray-800/50 transition">
-                      <td className="px-6 py-4">
-                        <p className="text-white font-bold font-sans">{u.name}</p>
-                        <p className="text-gray-500">{u.id}</p>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`px-2 py-1 rounded text-[10px] uppercase tracking-wider ${u.roleColor}`}>{u.role}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className={`font-bold ${u.color}`}>{u.score === 0 ? '0 (BLACKLIST)' : u.score}</span>
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <button 
-                          onClick={() => handleRemoveUserDirect(u.id)}
-                          className="text-purple-400 hover:text-purple-300 text-xs font-sans"
-                        >
-                          Revoke
-                        </button>
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan="4" className="text-center py-8 text-gray-500 font-sans">No users found matching "{searchQuery}"</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+            
+            <div className="p-4 space-y-3 overflow-y-auto h-[340px]" style={{ scrollbarWidth: 'thin', scrollbarColor: '#374151 transparent' }}>
+              {alerts.map((alertItem) => (
+                <div key={alertItem.id} className={`p-3 border-l-4 rounded-r-lg ${alertItem.color}`}>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold uppercase">{alertItem.severity} SEVERITY</span>
+                    <span className="text-[10px] text-gray-500">{alertItem.timestamp}</span>
+                  </div>
+                  <p className="text-sm mt-1">{alertItem.message}</p>
+                </div>
+              ))}
             </div>
           </div>
         </div>
@@ -326,13 +328,29 @@ export default function AdminTower({ onLogout }) {
             <p className="text-[10px] text-gray-500 mb-4 uppercase tracking-widest">Push notification to all residents</p>
             
             <form onSubmit={handleBroadcast} className="space-y-4 flex-1 flex flex-col">
-              <textarea 
-                required 
-                value={broadcastMsg}
-                onChange={(e) => setBroadcastMsg(e.target.value)}
-                placeholder="Enter emergency or system abnormality notification here..."
-                className="w-full flex-1 min-h-[120px] px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition mb-4 resize-none" 
-              />
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">Broadcast Title</label>
+                <input 
+                  type="text" 
+                  required 
+                  value={broadcastTitle}
+                  onChange={(e) => setBroadcastTitle(e.target.value)} 
+                  placeholder="Ex: Emergency Broadcast" 
+                  className="w-full px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition" 
+                />
+              </div>
+
+              <div className="flex-1 flex flex-col">
+                <label className="block text-xs font-medium text-gray-400 mb-1">Broadcast Message</label>
+                <textarea 
+                  required 
+                  value={broadcastMsg}
+                  onChange={(e) => setBroadcastMsg(e.target.value)}
+                  placeholder="Enter emergency or system abnormality notification here..."
+                  className="w-full flex-1 min-h-[120px] px-3 py-2 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 transition mb-4 resize-none" 
+                />
+              </div>
+              
               {broadcastSent && <div className="text-green-400 text-xs text-center p-2 bg-green-900/30 border border-green-800 rounded mb-3">Broadcast successfully transmitted!</div>}
               <button type="submit" className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 rounded-lg transition shadow-lg mt-auto">Transmit to All</button>
             </form>
@@ -406,6 +424,89 @@ export default function AdminTower({ onLogout }) {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Community Directory */}
+        <div className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col mt-6">
+          <div className="p-4 border-b border-gray-800 flex justify-between items-center flex-wrap gap-3">
+            <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Community Directory</h2>
+            
+            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+              <div className="flex space-x-1 p-0.5 bg-gray-950 rounded border border-gray-800">
+                {['All', 'Resident', 'Security'].map(filterRole => (
+                  <button
+                    key={filterRole}
+                    onClick={() => setDirectoryRoleFilter(filterRole)}
+                    className={`px-3 py-1 text-xs rounded font-medium transition-all ${directoryRoleFilter === filterRole ? 'bg-purple-600 text-white' : 'text-gray-400 hover:text-gray-200'}`}
+                  >
+                    {filterRole === 'All' ? 'All' : filterRole === 'Resident' ? 'Residents' : 'Guards'}
+                  </button>
+                ))}
+              </div>
+
+              <div className="relative flex-1 sm:flex-initial">
+                <input 
+                  type="text" 
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search ID or Name..." 
+                  className="pl-8 pr-3 py-1.5 bg-gray-950 border border-gray-700 rounded text-sm text-white focus:outline-none focus:border-purple-500 w-full sm:w-64 transition"
+                />
+                <svg className="w-4 h-4 text-gray-500 absolute left-2.5 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+              </div>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto overflow-y-auto max-h-[400px]" style={{ scrollbarWidth: 'thin', scrollbarColor: '#374151 transparent' }}>
+            <table className="w-full text-left text-sm text-gray-300 min-w-[600px]">
+              <thead className="text-xs text-gray-500 uppercase border-b border-gray-800 bg-gray-950/50 sticky top-0 z-10">
+                {/* 🛠️ Added "Status" to table head mapping structure */}
+                <tr>
+                  <th className="py-3 px-4 font-medium bg-gray-900">User Profile</th>
+                  <th className="py-3 px-4 font-medium bg-gray-900">Role</th>
+                  <th className="py-3 px-4 font-medium bg-gray-900">Status</th>
+                  <th className="py-3 px-4 font-medium bg-gray-900">Score</th>
+                  <th className="py-3 px-4 font-medium text-right bg-gray-900">Action</th>
+                </tr>
+              </thead>
+              <tbody className="font-mono text-xs divide-y divide-gray-800">
+                {filteredUsers.length > 0 ? filteredUsers.map((u) => (
+                  <tr key={`${u.role}-${u.id}`} className="hover:bg-gray-800/50 transition">
+                    <td className="px-6 py-4">
+                      <p className="text-white font-bold font-sans">{u.name}</p>
+                      <p className="text-gray-500">{u.id}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-1 rounded text-[10px] uppercase tracking-wider ${u.roleColor}`}>{u.role}</span>
+                    </td>
+                    {/* 🛠️ Dynamic account activation status indicator added below */}
+                    <td className="px-6 py-4">
+                      <span className={`px-2 py-0.5 rounded text-[10px] font-sans font-medium uppercase ${u.isInitialized ? 'bg-emerald-950 text-emerald-400 border border-emerald-900/50' : 'bg-amber-950 text-yellow-500 border border-amber-900/50'}`}>
+                        {u.isInitialized ? 'Activated' : 'Pending Activation'}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`font-bold ${u.color}`}>{u.score === 0 ? '0 (BLACKLIST)' : u.score}</span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end space-x-3">
+                        <button 
+                          onClick={() => handleRemoveUserDirect(u.id)}
+                          className="text-purple-400 hover:text-purple-300 text-xs font-sans"
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan="5" className="text-center py-8 text-gray-500 font-sans">No users found matching "{searchQuery}"</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
 

@@ -17,7 +17,7 @@ async def send_announcement(data: AnnouncementRequest):
         "created_at": datetime.now(ZoneInfo("Asia/Kolkata"))
     }
 
-    await db.announcements.insert_one(announcement)
+    await db.announcements_collection.insert_one(announcement)
 
     return {
         "status": "success",
@@ -28,7 +28,7 @@ async def send_announcement(data: AnnouncementRequest):
 @router.get("/announcements")
 async def get_announcements():
 
-    announcements = await db.announcements.find(
+    announcements = await db.announcements_collection.find(
         {},
         {"_id": 0}
     ).to_list(length=None)
