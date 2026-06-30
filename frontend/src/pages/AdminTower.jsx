@@ -1,4 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+
+const API = "http://127.0.0.1:8000";
 
 export default function AdminTower({ onLogout }) {
   const [lockdown, setLockdown] = useState(false);
@@ -12,28 +14,65 @@ export default function AdminTower({ onLogout }) {
   const [broadcastSent, setBroadcastSent] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [pendingRequest, setPendingRequest] = useState(true);
-  const [users, setUsers] = useState([
-    { id: 'res_142', name: 'John Doe', role: 'Resident', score: 95, status: 'Active', color: 'text-emerald-400', roleColor: 'bg-gray-800' },
-    { id: 'res_250', name: 'Bob Vance', role: 'Contractor', score: 70, status: 'Flagged', color: 'text-yellow-400', roleColor: 'bg-blue-900/30 text-blue-400 border border-blue-800/50' },
-    { id: 'sec_001', name: 'Unit Alpha', role: 'Security', score: 100, status: 'Active', color: 'text-emerald-400', roleColor: 'bg-gray-800 text-gray-400' },
-    { id: 'adm_441', name: 'Alice Smith', role: 'Admin', score: 99, status: 'Active', color: 'text-emerald-400', roleColor: 'bg-purple-900/30 text-purple-400 border border-purple-800/50' },
-  ]);
+  const [users, setUsers] = useState([]);
+
+  const fetchDirectory = async () => {
+    try {
+      const response = await fetch(`${API}/community/community-directory`);
+      if (!response.ok) throw new Error('Failed to fetch directory');
+      const data = await response.json();
+      
+      const mappedUsers = data.map((item) => {
+        const uId = item.id;
+        const inferredRole = item.role;
+        const isSecurity = inferredRole === 'Security';
+
+        return {
+          id: uId,
+          name: item.name || (isSecurity ? 'Guard Duty' : 'Resident Host'),
+          role: inferredRole,
+          score: item.score !== undefined ? item.score : 100,
+          status: item.status || 'Active',
+          color: item.score === 0 ? 'text-red-500' : 'text-emerald-400',
+          roleColor: isSecurity 
+            ? 'bg-gray-800 text-gray-400' 
+            : inferredRole === 'Admin' 
+              ? 'bg-purple-900/30 text-purple-400 border border-purple-800/50' 
+              : 'bg-gray-800 text-gray-400'
+        };
+      });
+      setUsers(mappedUsers);
+    } catch (err) {
+      console.error('Directory sync error:', err);
+    }
+  };
+
+  useEffect(() => {
+    fetchDirectory();
+  }, []);
 
   const filteredUsers = users.filter(u => 
     u.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
     u.id.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleBlacklist = (approved) => {
-    if (approved) {
-      alert("Blacklist Approved. Bob Vance (res_250) credentials have been permanently revoked.");
-      setUsers(users.map(u => 
-        u.id === 'res_250' ? { ...u, score: 0, status: 'BLACKLISTED', color: 'text-red-500' } : u
-      ));
-    } else {
-      alert("Request Rejected. Informing Guard Unit Alpha.");
+  const handleBlacklist = async (residentId) => {
+    if (!residentId) return;
+    try {
+      const response = await fetch(`${API}/community/resident/${residentId}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        alert(`Blacklist Approved. Credentials for ${residentId} have been permanently revoked.`);
+        fetchDirectory();
+        setPendingRequest(false);
+      } else {
+        const data = await response.json();
+        alert(data.detail || "Revocation request rejected by server.");
+      }
+    } catch (err) {
+      alert("Network failure resolving blacklist sequence.");
     }
-    setPendingRequest(false);
   };
 
   const handleNumResidentsChange = (e) => {
@@ -50,38 +89,104 @@ export default function AdminTower({ onLogout }) {
     setBadges(newBadges);
   };
 
-  const handleProvision = (e) => {
+  const handleProvision = async (e) => {
     e.preventDefault();
-    const creds = [];
-    if (provTab === 'resident') {
-      for(let i = 0; i < numResidents; i++) {
-        creds.push({
-          role: 'Resident',
-          id: `res_${Math.floor(100 + Math.random() * 900)}`,
-          tempPwd: Math.random().toString(36).slice(-6).toUpperCase(),
-          flat: flatNum,
-          badge: badges[i] || 'PENDING'
+    setGeneratedCreds(null);
+
+    try {
+      let response;
+
+      if (provTab === "resident") {
+        response = await fetch(`${API}/resident/generate-identities`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            number_of_residents: numResidents,
+            flat_number: flatNum,
+            resident_badge_ids: badges,
+          }),
+        });
+      } else {
+        response = await fetch(`${API}/security/generate-security-guards`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            number_of_new_guards: numSec,
+          }),
         });
       }
-    } else {
-      for(let i = 0; i < numSec; i++) {
-        creds.push({
-          role: 'Security',
-          id: `sec_${Math.floor(100 + Math.random() * 900)}`,
-          tempPwd: Math.random().toString(36).slice(-6).toUpperCase(),
-          flat: 'N/A',
-          badge: 'N/A'
-        });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Provision failed");
       }
+
+      const creds = data.map((item) => ({
+        role: item.Resident || item.Security,
+        id: item.ID,
+        tempPwd: item.Password,
+        flat: item.Flat || "N/A",
+        badge: item.Badge || "N/A",
+      }));
+
+      setGeneratedCreds(creds);
+      fetchDirectory();
+
+    } catch (err) {
+      alert(err.message);
     }
-    setGeneratedCreds(creds);
   };
 
-  const handleBroadcast = (e) => {
+  const handleBroadcast = async (e) => {
     e.preventDefault();
-    setBroadcastSent(true);
-    setBroadcastMsg('');
-    setTimeout(() => setBroadcastSent(false), 3000);
+    setBroadcastSent(false);
+
+    try {
+      const response = await fetch(`${API}/announcement/send-announcement`, {
+        method: 'POST',
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: 'System Priority Bulletin',
+          message: broadcastMsg
+        })
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.detail || 'Failed to sync noticeboard broadcast.');
+      }
+
+      setBroadcastSent(true);
+      setBroadcastMsg('');
+      setTimeout(() => setBroadcastSent(false), 3000);
+
+    } catch (err) {
+      alert(err.message);
+    }
+  };
+
+  const handleRemoveUserDirect = async (userId) => {
+    if (!window.confirm(`Revoke clearance credentials for: ${userId}?`)) return;
+
+    try {
+      const response = await fetch(`${API}/community/resident/${userId}`, {
+        method: 'DELETE'
+      });
+
+      if (response.ok) {
+        fetchDirectory();
+      } else {
+        const data = await response.json();
+        alert(data.detail || 'Failed to drop target membership identifier.');
+      }
+    } catch (err) {
+      alert('Error connection timeout syncing delete instruction.');
+    }
   };
 
   return (
@@ -95,6 +200,7 @@ export default function AdminTower({ onLogout }) {
       </nav>
 
       <main className="p-6 max-w-7xl mx-auto space-y-6">
+        {/* Top Analytics Metrics Cards Row */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div className="bg-gray-900 p-5 rounded-xl border border-gray-800">
             <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">AI Detection Accuracy</span>
@@ -114,6 +220,7 @@ export default function AdminTower({ onLogout }) {
           </div>
         </div>
 
+        {/* Middle Sections Grid Row Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="space-y-6 flex flex-col">
             <div className="bg-gray-900 rounded-xl border border-gray-800 flex-1 flex flex-col">
@@ -134,11 +241,10 @@ export default function AdminTower({ onLogout }) {
                     <p className="text-xs text-gray-400 mb-3">AI flagged 3rd tailgating violation. Guard intercepted and verified intentional breach. Requesting immediate credential revocation.</p>
                     
                     <div className="flex space-x-2 border-t border-gray-800 pt-3">
-                      <button onClick={() => handleBlacklist(true)} className="flex-1 bg-red-900/50 hover:bg-red-900 text-red-300 border border-red-800 py-1.5 rounded text-xs font-bold transition">Revoke Access</button>
-                      <button onClick={() => handleBlacklist(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 py-1.5 rounded text-xs transition">Reject</button>
+                      <button onClick={() => handleBlacklist("res_250")} className="flex-1 bg-red-900/50 hover:bg-red-900 text-red-300 border border-red-800 py-1.5 rounded text-xs font-bold transition">Revoke Access</button>
+                      <button onClick={() => setPendingRequest(false)} className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 py-1.5 rounded text-xs transition">Reject</button>
                     </div>
                   </div>
-                  
                 ) : (
                   <div className="text-center py-8 animate-fadeIn">
                     <svg className="w-10 h-10 text-gray-700 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
@@ -148,7 +254,7 @@ export default function AdminTower({ onLogout }) {
               </div>
             </div>
 
-            <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 shrink-0" style={{ boxShadow: '0 0 20px rgba(168, 85, 247, 0.15)' }}>
+            <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 shrink-0">
               <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-2">Emergency Controls</h2>
               <p className="text-[10px] text-gray-500 mb-4 uppercase tracking-widest">Bypasses Tier-1 & Tier-2</p>
               <button onClick={() => setLockdown(!lockdown)} className={`w-full font-bold py-3 px-4 rounded-lg transition flex justify-center items-center space-x-2 ${lockdown ? 'bg-red-600 text-white shadow-lg' : 'bg-red-950 text-red-400 border border-red-800 hover:bg-red-900'}`}>
@@ -157,6 +263,7 @@ export default function AdminTower({ onLogout }) {
             </div>
           </div>
 
+          {/* Community Directory */}
           <div className="lg:col-span-2 bg-gray-900 rounded-xl border border-gray-800 flex flex-col h-full">
             <div className="p-4 border-b border-gray-800 flex justify-between items-center flex-wrap gap-3">
               <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Community Directory</h2>
@@ -171,14 +278,14 @@ export default function AdminTower({ onLogout }) {
                 <svg className="w-4 h-4 text-gray-500 absolute left-2.5 top-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
               </div>
             </div>
-            <div className="overflow-x-auto flex-1">
-              <table className="w-full text-left text-sm text-gray-300">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm text-gray-300 min-w-[600px]">
                 <thead className="text-xs text-gray-500 uppercase border-b border-gray-800 bg-gray-950/50">
                   <tr><th className="py-3 px-4 font-medium">User Profile</th><th className="py-3 px-4 font-medium">Role</th><th className="py-3 px-4 font-medium">Score</th><th className="py-3 px-4 font-medium text-right">Action</th></tr>
                 </thead>
                 <tbody className="font-mono text-xs divide-y divide-gray-800">
                   {filteredUsers.length > 0 ? filteredUsers.map((u) => (
-                    <tr key={u.id} className="hover:bg-gray-800/50 transition">
+                    <tr key={`${u.role}-${u.id}`} className="hover:bg-gray-800/50 transition">
                       <td className="px-6 py-4">
                         <p className="text-white font-bold font-sans">{u.name}</p>
                         <p className="text-gray-500">{u.id}</p>
@@ -190,7 +297,12 @@ export default function AdminTower({ onLogout }) {
                         <span className={`font-bold ${u.color}`}>{u.score === 0 ? '0 (BLACKLIST)' : u.score}</span>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <button className="text-purple-400 hover:text-purple-300 text-xs font-sans">Manage</button>
+                        <button 
+                          onClick={() => handleRemoveUserDirect(u.id)}
+                          className="text-purple-400 hover:text-purple-300 text-xs font-sans"
+                        >
+                          Revoke
+                        </button>
                       </td>
                     </tr>
                   )) : (
@@ -204,6 +316,7 @@ export default function AdminTower({ onLogout }) {
           </div>
         </div>
 
+        {/* Bottom Utility Grid Options */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
           <div className="bg-gray-900 rounded-xl p-6 border border-gray-800 shadow-lg flex flex-col min-h-[250px]">
             <div className="flex items-center space-x-2 mb-4">
@@ -226,7 +339,7 @@ export default function AdminTower({ onLogout }) {
           </div>
 
           <div className="lg:col-span-2 bg-gray-900 rounded-xl p-6 border border-gray-800 shadow-lg">
-            <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4">Entity Provisioning Engine</h2>
+            <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider mb-4">Entity Provisioning Engine</h2>
             
             <div className="flex border-b border-gray-800 mb-5">
               <button onClick={() => { setProvTab('resident'); setGeneratedCreds(null); }} className={`px-4 py-2 text-sm font-medium transition-colors ${provTab === 'resident' ? 'text-blue-400 border-b-2 border-blue-400' : 'text-gray-500 hover:text-gray-300'}`}>Add Residents</button>
@@ -295,6 +408,7 @@ export default function AdminTower({ onLogout }) {
             </div>
           </div>
         </div>
+
       </main>
     </div>
   );

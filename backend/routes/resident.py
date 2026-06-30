@@ -1,6 +1,9 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+
 from database import db
+from schema import ResidentRequest
+from generator import generate_password
 
 router = APIRouter()
 
@@ -60,7 +63,6 @@ async def add_vehicle(payload: VehicleAdd):
 
     normalized_plate = normalize_plate(payload.plate_number)
 
-    # Check duplicate in vehicles collection
     existing_vehicle = await db.vehicles.find_one({
         "plate_number": normalized_plate
     })
@@ -71,13 +73,11 @@ async def add_vehicle(payload: VehicleAdd):
             detail="Vehicle already registered"
         )
 
-    # Add to vehicles collection
     await db.vehicles.insert_one({
         "plate_number": normalized_plate,
         "resident_id": payload.resident_id
     })
 
-    # Add to resident document
     await db.residents.update_one(
         {"id": payload.resident_id},
         {
@@ -99,7 +99,6 @@ async def remove_vehicle(payload: VehicleRemove):
 
     normalized_plate = normalize_plate(payload.plate_number)
 
-    # Remove from vehicles collection
     result = await db.vehicles.delete_one({
         "plate_number": normalized_plate,
         "resident_id": payload.resident_id
@@ -111,7 +110,6 @@ async def remove_vehicle(payload: VehicleRemove):
             detail="Vehicle not found"
         )
 
-    # Remove from resident document
     await db.residents.update_one(
         {"id": payload.resident_id},
         {
@@ -126,6 +124,7 @@ async def remove_vehicle(payload: VehicleRemove):
     }
 
 
+# ---------- Report Lost Card ----------
 @router.post("/report-lost-card/{resident_id}")
 async def report_lost_card(resident_id: str):
 
@@ -159,3 +158,49 @@ async def report_lost_card(resident_id: str):
     return {
         "message": "Card blocked successfully. Security notified."
     }
+
+
+# ---------- Generate Resident Identities (Admin) ----------
+@router.post("/generate-identities")
+async def generate_identities(data: ResidentRequest):
+
+    existing = await db.residents.find_one(
+        {
+            "flat_number": data.flat_number
+        }
+    )
+
+    if existing:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Flat {data.flat_number} is already registered."
+        )
+
+    output = []
+
+    for index, badge in enumerate(data.resident_badge_ids, start=1):
+
+        resident = {
+            "id": f"res_{data.flat_number}_{index}",
+            "flat_number": data.flat_number,
+            "badge": badge,
+            "password": generate_password(),
+            "full_name": None,
+            "age": None,
+            "phone": None,
+            "is_initialized": False,
+            "vehicles": [],
+            "card_status": "active"
+        }
+
+        await db.residents.insert_one(resident)
+
+        output.append({
+            "Resident": "Resident",
+            "Password": resident["password"],
+            "Badge": resident["badge"],
+            "ID": resident["id"],
+            "Flat": resident["flat_number"]
+        })
+
+    return output
