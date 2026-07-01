@@ -1,9 +1,12 @@
-import { useState, useEffect } from 'react';
+
+import { useState, useEffect } from "react";
+import { getResidentAlerts } from "../services/alerts";
 import ResidentBot from '../components/ResidentBot';
 
 export default function ResidentPortal({ onLogout }) {
   const [, setToast] = useState(false);
   const [guestSuccess, setGuestSuccess] = useState(false);
+  const [alerts, setAlerts] = useState([]);
   const [groupSuccess, setGroupSuccess] = useState(false);
   const [workerSuccess, setWorkerSuccess] = useState(false);
   const [deliverySuccess, setDeliverySuccess] = useState(false);
@@ -383,6 +386,24 @@ export default function ResidentPortal({ onLogout }) {
     }
   }, [residentId]);
 
+  useEffect(() => {
+
+      if (!residentId) return;
+
+      const loadAlerts = async () => {
+
+          try {
+              const data = await getResidentAlerts(residentId);
+              setAlerts(data);
+          } catch (err) {
+            console.error(err);
+          }
+      };
+      loadAlerts();
+      const interval = setInterval(loadAlerts, 5000);
+      return () => clearInterval(interval);
+  }, [residentId]);
+
   return (
     <div className="bg-gray-950 min-h-screen font-sans text-gray-200 overflow-x-hidden w-full pb-10">
       <nav className="bg-gray-900 border-b border-gray-800 px-6 py-4 flex justify-between items-center sticky top-0 z-40">
@@ -510,6 +531,7 @@ export default function ResidentPortal({ onLogout }) {
             </div>
           )}
         </div>
+        
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="space-y-6">
@@ -635,11 +657,55 @@ export default function ResidentPortal({ onLogout }) {
                 className="p-4 space-y-3 overflow-y-auto h-[500px]"
                 style={{ scrollbarWidth: 'thin', scrollbarColor: '#374151 transparent' }}
               >
-                <div className="bg-yellow-950/30 border-l-4 border-yellow-500 p-3 rounded-r-lg">
-                  <span className="text-xs font-bold text-yellow-400 uppercase">MEDIUM SEVERITY</span>
-                  <p className="text-sm text-gray-300 mt-1">Tailgating anomaly recorded during entry. Please ensure doors close securely.</p>
-                </div>
+              {
+                alerts.length === 0 ? (
+
+                  <div className="text-green-400 text-sm">
+                    No active security alerts.
+                  </div>
+
+                ) : (
+
+                  alerts.map(alert => (
+
+                    <div
+                      key={alert._id}
+                      className="border border-red-700 rounded-lg p-4 mb-3 bg-red-950/20"
+                    >
+
+                      <div className="flex justify-between">
+
+                        <span className="font-bold text-red-400">
+                          {alert.severity}
+                        </span>
+
+                        <span className="text-xs text-gray-400">
+                          {alert.status}
+                        </span>
+
+                      </div>
+
+                      <h3 className="font-semibold text-white mt-2">
+                        {alert.signal_type}
+                      </h3>
+
+                      <p className="mt-2 text-gray-300">
+                        {alert.summary}
+                      </p>
+
+                      <p className="mt-2 text-sm text-blue-300">
+                        {alert.recommended_action}
+                      </p>
+
+                    </div>
+
+                  ))
+
+                )
+              }
+          
               </div>
+
             </div>
 
             <button

@@ -1,147 +1,81 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 
 export default function GuardDashboard({ onLogout }) {
-  const [alarmActive, setAlarmActive] = useState(false);
-  const [alertData, setAlertData] = useState(null);
-  const [intercomState, setIntercomState] = useState('idle'); 
-  const [flatNumber, setFlatNumber] = useState('');
-  const [callDuration, setCallDuration] = useState(0);
-  const [callId, setCallId] = useState(null);
-  const [feed, setFeed] = useState([
-    { id: 1, time: '10:14:05', loc: 'LOBBY_ENTRANCE', type: 'Badge_Swipe', status: 'SUCCESS', color: 'text-emerald-500' },
-    { id: 2, time: '10:12:40', loc: 'NORTH_GATE', type: 'Camera_Scan', status: 'SUCCESS (0.98)', color: 'text-emerald-500' }
-  ]);
-  const feedEndRef = useRef(null);
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [flatNumber, setFlatNumber] = useState("");
+  const [intercomState, setIntercomState] = useState("idle");
+  const [error, setError] = useState("");
 
-  const [resolutionStep, setResolutionStep] = useState(null); 
-  const [actionTaken, setActionTaken] = useState('');
-  const [feedback, setFeedback] = useState('');
+  const user = JSON.parse(localStorage.getItem("user"));
+
+  const guardId = user?.guard?.id;
 
   // Active Security Guard Profile State
-  
-  const [currentGuard] = useState({
-  name: "Officer J. Vance",
-  guardId: "GUARD001",
-  badgeId: "HEI-9042",
-  station: "Gate House Alpha"
-});
+  const [currentGuard,setCurrentGuard]=useState(null);
 
   // Delivery Pre-Approval State
-  const [preApprovals, setPreApprovals] = useState([]);
+  const [preApprovals, setPreApprovals] = useState([
+    { id: 1, resident: "John Doe (A-402)", courier: "Amazon", window: "2–4 PM", status: "pending" },
+    { id: 2, resident: "Sarah Jenkins (B-105)", courier: "FedEx", window: "Morning (8 AM - 12 PM)", status: "pending" }
+  ]);
 
-  useEffect(() => {
-    const gates = ["NORTH_GATE", "SOUTH_GATE", "LOBBY_ENTRANCE", "SERVICE_GATE"];
-    const events = ["Badge_Swipe", "Camera_Scan", "QR_Scan"];
-    
-    const interval = setInterval(() => {
-      if(!alarmActive && !resolutionStep) {
-        const time = new Date().toLocaleTimeString('en-US', { hour12: false });
-        const newEvent = {
-          id: Date.now(),
-          time: time,
-          loc: gates[Math.floor(Math.random() * gates.length)],
-          type: events[Math.floor(Math.random() * events.length)],
-          status: 'SUCCESS',
-          color: 'text-emerald-500'
-        };
-        setFeed(prev => [...prev, newEvent].slice(-15));
-      }
-    }, 3500);
-    return () => clearInterval(interval);
-  }, [alarmActive, resolutionStep]);
-
-  useEffect(() => {
-    feedEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [feed]);
   
-  const simulateAlert = async () => {
-  try {
-    const response = await fetch("http://127.0.0.1:8000/security/simulate-alert");
 
-    const data = await response.json();
+  useEffect(() => {
 
-    console.log("Alert received:", data);
+    const loadAlerts = async () => {
 
-    console.log(data.locationHistory);
+    try {
 
-    console.log(data);
+        // Guard Profile
+        const profileResponse = await fetch(
+            `http://127.0.0.1:8000/profile/guard/${guardId}`
+        );
 
-    setAlertData(data);
+        const guard = await profileResponse.json();
 
-    setAlarmActive(true);
+        setCurrentGuard({
 
-  } catch (error) {
-    console.error("Failed to fetch alert:", error);
-  }
-};
+            name: guard.full_name,
 
-    const initiateResolution = (decision, action) => {
-    setActionTaken({
-        decision,
-        action
-    });
+            badgeId: guard.id,
 
-    setResolutionStep("feedback");
-};
+            station: guard.station || "Main Security"
 
-  const submitFeedback = async (e) => {
-  e.preventDefault();
+        });
 
-  try {
-    let url = "";
-let body = {};
+        // Guard Alerts
+        const alertsResponse = await fetch(
+            `http://127.0.0.1:8000/alerts/guard/${guardId}`
+        );
 
-if (actionTaken.action === "BLACKLIST_REQUESTED") {
+        const data = await alertsResponse.json();
 
-  url = "http://127.0.0.1:8000/blacklist/request";
+        setAlerts(data);
 
-  body = {
-    alertId: alertData.alertId,
-    id: alertData.profile.residentId,
-    name: alertData.profile.name,
-    reason: feedback,
-    requestedBy: currentGuard.guardId,
+    }
+
+    catch (err) {
+
+        console.error(err);
+
+        setError("Unable to load alerts.");
+
+    }
+
+    finally {
+
+        setLoading(false);
+
+    }
+
   };
-
-} else {
-
-  url = "http://127.0.0.1:8000/security/alert-action";
-
-  body = {
-    alertId: alertData.alertId,
-    guardId: currentGuard.guardId,
-    decision: actionTaken.decision,
-    action: actionTaken.action,
-    reason: feedback,
-  };
-
-}
-
-console.log(body);
-const response = await fetch(url, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-  },
-  body: JSON.stringify(body),
-});
-
-    const result = await response.json();
-
-    console.log("Saved:", result);
-
-    setResolutionStep("submitted");
-
-    setTimeout(() => {
-      setAlarmActive(false);
-      setResolutionStep(null);
-      setFeedback("");
-    }, 2500);
-
-  }catch (error) {
-  console.error("Fetch Error:", error);
-}
-};          
+        loadAlerts();
+        const interval = setInterval(loadAlerts,3000);
+        return ()=>clearInterval(interval);
+    },[guardId]);
+ 
 
   const handleCall = async (e) => {
   console.log("handleCall fired");
@@ -225,66 +159,38 @@ const response = await fetch(url, {
   }
 };
 
-  const handleAllowEntry = async (deliveryId) => {
-  try {
-    const response = await fetch(
-      "http://127.0.0.1:8000/delivery/allow-entry",
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          delivery_id: deliveryId,
-        }),
-      }
+  const handleAllowEntry = (id) => {
+    setPreApprovals(prev => 
+      prev.map(item => item.id === id ? { ...item, status: "verified" } : item)
     );
-
-    const result = await response.json();
-
-    console.log(result);
-
-    // Refresh the list after updating
-    const deliveries = await fetch(
-      "http://127.0.0.1:8000/delivery/pending"
-    );
-
-    const data = await deliveries.json();
-
-    setPreApprovals(data);
-
-  } catch (error) {
-    console.error(error);
-  }
-};
-
-  useEffect(() => {
-  let timer;
-
-  if (intercomState === "connected") {
-    timer = setInterval(() => {
-      setCallDuration((prev) => prev + 1);
-    }, 1000);
-  }
-
-  return () => {
-    clearInterval(timer);
   };
-}, [intercomState]);
 
-useEffect(() => {
-  console.log("Intercom State:", intercomState);
-}, [intercomState]);
+  const verifyAlert = async(id)=>{
 
-useEffect(() => {
-  fetch("http://127.0.0.1:8000/delivery/pending")
-    .then((res) => res.json())
-    .then((data) => {
-      console.log("Pending Deliveries:", data);
-      setPreApprovals(data);
-    })
-    .catch((err) => console.error("Error fetching deliveries:", err));
-}, []);
+    await fetch(
+        `http://127.0.0.1:8000/alerts/${id}/verify`,
+        {
+          method:"POST"
+        }
+    );
+    setAlerts(prev =>
+        prev.map(a =>
+            a._id === id
+                ? { ...a, verified: true }
+                : a
+        )
+    );
+    };
+
+    const resolveAlert = async (id) => {
+        await fetch(
+            `http://127.0.0.1:8000/alerts/${id}/resolve`,
+            {
+                method: "POST"
+            }
+        );
+        setAlerts(prev => prev.filter(a => a._id !== id));
+    };
 
   return (
     <div className="bg-gray-950 min-h-screen font-sans text-gray-200 h-screen overflow-hidden flex flex-col w-full">
@@ -298,18 +204,18 @@ useEffect(() => {
           {/* 🛠️ Active Security Profile Identifier */}
           <div className="flex items-center space-x-3 bg-gray-950/60 border border-gray-800 rounded-lg px-3 py-1.5 hidden sm:flex">
             <div className="h-7 w-7 rounded-full bg-blue-900/40 border border-blue-800 flex items-center justify-center text-xs font-bold text-blue-400 font-mono">
-              {currentGuard.name.split(' ').pop()[0]}
+              {currentGuard?.name?.charAt(0) || "G"}
             </div>
             <div className="text-left">
-              <p className="text-xs font-bold text-gray-200 leading-tight">{currentGuard.name}</p>
-              <p className="text-[10px] text-gray-500 font-mono leading-none">{currentGuard.badgeId} • {currentGuard.station}</p>
+              <p className="text-xs font-bold text-gray-200 leading-tight">{currentGuard?.name || "Loading..."}</p>
+              <p className="text-[10px] text-gray-500 font-mono leading-none">{currentGuard?.badgeId} • {currentGuard?.station}</p>
             </div>
           </div>
 
           <div className="text-right border-r border-gray-800 pr-6 hidden sm:block">
             <p className="text-xs text-gray-500 uppercase tracking-wider font-bold">Active Queue</p>
-            <p className={`text-sm font-bold font-mono ${alarmActive ? 'text-red-400' : 'text-blue-400'}`}>
-              {alarmActive ? '1 Pending Alarm' : '0 Pending Alarms'}
+            <p className="text-sm font-bold font-mono text-blue-400">
+              {alerts.length} Pending Alert{alerts.length !== 1 ? "s" : ""}
             </p>
           </div>
           <button onClick={onLogout} className="text-sm bg-gray-800 hover:bg-gray-700 border border-gray-700 text-red-400 px-4 py-2 rounded-lg transition">Sign Out</button>
@@ -318,117 +224,148 @@ useEffect(() => {
 
       <main className="p-6 flex-1 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-hidden">
         <div className="lg:col-span-2 space-y-6 flex flex-col h-full overflow-y-auto pr-2">
-          <div className={`bg-gray-900 border border-gray-800 rounded-xl p-6 transition-all duration-300 shadow-2xl shrink-0 ${alarmActive && !resolutionStep ? 'animate-pulseRed' : ''}`}>
-            {!alarmActive ? (
-              <div className="py-16 text-center">
-                <svg className="w-16 h-16 text-gray-700 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                <h3 className="text-xl font-bold text-gray-400">Perimeter Stream Stable</h3>
-                <p className="text-sm text-gray-500 mt-1">Autonomous AI investigation queue is currently empty.</p>
-                <button onClick={simulateAlert} className="mt-8 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-bold transition shadow-lg border border-blue-500">Simulate AI Trigger</button>
-              </div>
-            ) : resolutionStep === 'feedback' ? (
-              <div className="animate-fadeIn block py-4">
-                <div className="flex items-center space-x-3 border-b border-gray-800 pb-4 mb-4">
-                  <div className="p-2 bg-blue-900/30 rounded-lg border border-blue-800 text-blue-400">
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"></path></svg>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-bold text-white">Provide AI Training Context</h3>
-                    <p className="text-xs text-gray-400 mt-0.5">Your input tunes the Heimdall LLM for future incidents.</p>
-                  </div>
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-2xl shrink-0">
+           {
+            error ? (
+
+                <div className="text-center py-20">
+
+                    <h2 className="text-red-400 text-xl font-bold">
+
+                        {error}
+
+                    </h2>
+
                 </div>
-                
-                <form onSubmit={submitFeedback} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-400 mb-2 uppercase tracking-widest">
-  Action Logged:
-  <span
-    className={
-      actionTaken?.decision === "DISMISSED"
-        ? "text-blue-400 font-bold"
-        : "text-red-400 font-bold"
-    }
-  >
-    {`${actionTaken?.decision}${
-      actionTaken?.action ? ` (${actionTaken.action})` : ""
-    }`}
-  </span>
-</label>
-                    <textarea 
-                      required
-                      value={feedback}
-                      onChange={(e) => setFeedback(e.target.value)}
-                      placeholder="e.g., Resident was carrying heavy groceries, authorized a friend to hold the door. False positive on tailgating."
-                      className="w-full px-4 py-3 bg-gray-950 border border-gray-700 rounded-lg text-white text-sm focus:outline-none focus:border-blue-500 transition h-28 resize-none shadow-inner"
-                    ></textarea>
-                  </div>
-                  
-                  <div className="flex justify-end space-x-3 pt-2">
-                    <button type="button" onClick={() => setResolutionStep(null)} className="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition font-medium border border-gray-700">Cancel</button>
-                    <button type="submit" className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-lg text-sm transition shadow-[0_0_15px_rgba(37,99,235,0.4)] flex items-center space-x-2 border border-blue-500">
-                      <span>Submit to Neural Net</span>
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M14 5l7 7m0 0l-7 7m7-7H3"></path></svg>
-                    </button>
-                  </div>
-                </form>
-              </div>
-            ) : resolutionStep === 'submitted' ? (
-              <div className="py-16 text-center animate-fadeIn">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-900/30 border border-emerald-800 mb-4 shadow-[0_0_20px_rgba(16,185,129,0.2)]">
-                  <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
+
+            ) : loading ? (
+
+                <div className="flex justify-center items-center py-20">
+
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
+
                 </div>
-                <h3 className="text-xl font-bold text-emerald-400">Context Ingested Successfully</h3>
-                <p className="text-sm text-gray-400 mt-2">LLM weights will be adjusted in the next nightly batch training.</p>
-                <p className="text-xs text-gray-500 mt-1 font-mono">Clearing active alarm queue...</p>
-              </div>
+
+            ) : alerts.length === 0 ? (
+
+                <div className="py-20 text-center">
+
+                    <svg
+                        className="w-16 h-16 text-emerald-600 mx-auto mb-4"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                    </svg>
+
+                    <h2 className="text-xl font-bold text-emerald-400">
+
+                        No Active Investigations
+
+                    </h2>
+
+                    <p className="text-gray-500 mt-2">
+
+                        Guard queue is currently empty.
+
+                    </p>
+
+                </div>
+
             ) : (
-              <div className="animate-fadeIn block">
-                <div className="flex justify-between items-start border-b border-gray-800 pb-4 mb-4">
-                  <div>
-                    <span className="px-2 py-1 bg-red-900/50 text-red-400 border border-red-800 text-xs font-mono rounded font-bold uppercase tracking-wide mr-2">CRITICAL</span>
-                    <h2 className="text-xl font-bold text-white inline-block mt-2 sm:mt-0">{alertData?.type}</h2>
-                    <p className="text-sm text-gray-400 mt-1 font-mono">Location: {alertData?.location}r</p>
-                  </div>
-                  <span className="text-xs font-mono text-gray-500 bg-gray-950 px-2 py-1 rounded border border-gray-800">Just Now</span>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
-                  <div className="bg-gray-950 p-3 rounded-lg border border-gray-800">
-                    <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Profile Identity</p>
-                    <p className="text-sm font-bold text-white mt-1">{alertData?.profile?.name}</p>
-                    <p className="text-xs text-yellow-400 mt-0.5">Trust: {alertData?.profile?.trustScore} | Past Infractions: {alertData?.profile?.pastInfractions}</p>
-                  </div>
-                  <div className="bg-gray-950 p-3 rounded-lg border border-gray-800">
-                    <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Location History</p>
-                    <p className="text-sm font-bold text-white mt-1">{alertData?.locationHistory?.lastLocation}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">{alertData?.locationHistory?.incidentsToday} incidents today</p>
-                  </div>
-                  <div className="bg-gray-950 p-3 rounded-lg border border-gray-800">
-                    <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">2Hr Global Sync</p>
-                    <p className="text-sm font-bold text-white mt-1"> {alertData?.globalSync?.status}</p>
-                    <p className="text-xs text-gray-400 mt-0.5">No concurrent anomalies</p>
-                  </div>
-                </div>
 
-                <div className="mb-5">
-                  <h4 className="text-xs text-blue-400 uppercase tracking-widest font-bold mb-2">AI Diagnostic Rationale</h4>
-                  <div className="bg-gray-950 p-4 rounded-lg border-l-4 border-blue-500 text-sm text-gray-300 leading-relaxed">
-                    {alertData?.reason}
-                  </div>
-                </div>
+                alerts.map(alert => (
+                    <div
+                        key={alert._id}
+                        className="border border-gray-800 rounded-xl p-6 mb-5 bg-gray-950"
+                    >
+                        <div className="flex justify-between items-center">
+                            <span
+                                className={`px-3 py-1 rounded text-xs font-bold
+                                ${
+                                    alert.severity==="High"
+                                    ? "bg-red-900 text-red-300"
+                                    : alert.severity==="Medium"
+                                    ? "bg-yellow-900 text-yellow-300"
+                                    : "bg-green-900 text-green-300"
+                                }
+                                `}
+                            >
+                                {alert.severity}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {alert.status}
+                            </span>
+                        </div>
 
-                <div className="flex flex-wrap justify-between items-center pt-4 border-t border-gray-800 gap-3">
-                  <button onClick={() =>initiateResolution("CONFIRMED","BLACKLIST_REQUESTED")} className="px-4 py-2 bg-purple-900/40 hover:bg-purple-900/60 text-purple-300 border border-purple-800 rounded-lg text-sm transition flex items-center space-x-2">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-                    <span>Request Admin Blacklist</span>
-                  </button>
-                  <div className="flex space-x-3">
-                    <button onClick={() =>initiateResolution("DISMISSED",null)} className="px-5 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition border border-gray-700">Ignore Alert</button>
-                    <button onClick={() =>initiateResolution("CONFIRMED","INTERCEPT")} className="px-6 py-2 bg-red-600 hover:bg-red-700 text-white font-bold rounded-lg text-sm transition shadow-lg">Confirm Threat & Intercept</button>
-                  </div>
-                </div>
-              </div>
-            )}
+                        <h2 className="text-xl font-bold text-white mt-4">
+                          {alert.signal_type}
+                        </h2>
+
+                        <p className="text-gray-300 mt-3">
+                          {alert.summary}
+                        </p>
+
+                        <p className="text-xs text-gray-500 mt-2">
+                            {new Date(alert.created_at).toLocaleString()}
+                        </p>
+
+                        <div className="mt-4 bg-blue-950/30 border-l-4 border-blue-600 p-3 rounded">
+                            <p className="text-blue-300 text-sm">
+                              {alert.recommended_action}
+                            </p>
+                        </div>
+
+                        <div className="mt-3 flex gap-2">
+
+                        {
+                            alert.verified
+                            &&
+                            <span className="bg-blue-900 text-blue-300 px-2 py-1 rounded text-xs">
+                                VERIFIED
+                            </span>
+                        }
+                        {
+                            alert.resolved
+                            &&
+                            <span className="bg-green-900 text-green-300 px-2 py-1 rounded text-xs">
+                              RESOLVED
+                            </span>
+                        }
+                    </div>
+                        <div className="flex gap-3 mt-5">
+                            <button
+                              disabled={alert.verified}
+                              onClick={()=>verifyAlert(alert._id)}
+                              className={`px-5 py-2 rounded-lg font-semibold
+                                ${
+                                    alert.verified
+                                        ? "bg-gray-700 cursor-not-allowed"
+                                        : "bg-yellow-600 hover:bg-yellow-700"
+                                }
+                              `}
+                            >
+                              Verify
+                            </button>
+
+                            <button
+                                disabled={alert.resolved}
+                                onClick={()=>resolveAlert(alert._id)}
+                                className="bg-green-600 hover:bg-green-700 px-5 py-2 rounded-lg font-semibold"
+                            >
+                              Resolve
+                            </button>
+                        </div>
+                    </div>
+                ))
+            )
+            }
           </div>
 
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 shadow-lg shrink-0">
@@ -550,13 +487,22 @@ useEffect(() => {
             <span className="h-2 w-2 rounded-full bg-emerald-500 animate-ping"></span>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-3 font-mono text-[11px] text-gray-500 scroll-smooth">
-            {feed.map((item) => (
-              <div key={item.id} className="border-b border-gray-800/50 pb-2 animate-fadeIn">
-                <span className="text-gray-400">[{item.time}]</span> {item.loc} <br/> 
-                {item.type} <span className={`${item.color} ml-2`}>{item.status}</span>
+            {alerts.map(alert=>(
+              <div
+              key={alert._id}
+              className="border-b border-gray-800 pb-3 animate-fadeIn"
+              >
+              <div className="text-xs text-gray-500">
+              {alert.signal_type}
               </div>
-            ))}
-            <div ref={feedEndRef} />
+              <div className="text-white mt-1">
+              {alert.summary}
+              </div>
+              <div className="text-blue-400 mt-1 text-xs">
+              {alert.gate_id}
+              </div>
+              </div>
+              ))}
           </div>
         </div>
       </main>

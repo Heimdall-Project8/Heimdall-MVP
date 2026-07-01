@@ -1,9 +1,13 @@
-import { useState, useEffect } from 'react';
-
-const API = "http://127.0.0.1:8000";
+import { useState,useEffect } from 'react';
 
 export default function AdminTower({ onLogout }) {
   const [lockdown, setLockdown] = useState(false);
+  const [alerts, setAlerts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const user = JSON.parse(localStorage.getItem("user"));
+  const adminId = user?.admin?.id;
+  const [currentAdmin, setCurrentAdmin] = useState(null);
   const [provTab, setProvTab] = useState('resident'); 
   const [numResidents, setNumResidents] = useState(1);
   const [flatNum, setFlatNum] = useState('');
@@ -14,55 +18,66 @@ export default function AdminTower({ onLogout }) {
   const [broadcastMsg, setBroadcastMsg] = useState('');
   const [broadcastSent, setBroadcastSent] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const [directoryRoleFilter, setDirectoryRoleFilter] = useState('All'); 
-  const [users, setUsers] = useState([]);
-
-  const [pendingRequests, setPendingRequests] = useState([
-    { id: 'res_250', name: 'Bob Vance', details: 'AI flagged 3rd tailgating violation. Guard intercepted and verified intentional breach. Requesting immediate credential revocation.', origin: 'Unit Alpha' },
-    { id: 'res_104', name: 'Michael Scott', details: 'Access card pattern anomaly detected. Entity logged entering North Gate and South Gate within 30 seconds.', origin: 'System Kernel' },
-    { id: 'res_882', name: 'Dwight Schrute', details: 'Manual override log warning requested. Override activated on perimeter vault perimeter sensor asset.', origin: 'Watch Tower 2' }
+  const [users, setUsers] = useState([
+    { id: 'res_142', name: 'John Doe', role: 'Resident', score: 95, status: 'Active', color: 'text-emerald-400', roleColor: 'bg-gray-800' },
+    { id: 'res_250', name: 'Bob Vance', role: 'Contractor', score: 70, status: 'Flagged', color: 'text-yellow-400', roleColor: 'bg-blue-900/30 text-blue-400 border border-blue-800/50' },
+    { id: 'sec_001', name: 'Unit Alpha', role: 'Security', score: 100, status: 'Active', color: 'text-emerald-400', roleColor: 'bg-gray-800 text-gray-400' },
+    { id: 'adm_441', name: 'Alice Smith', role: 'Admin', score: 99, status: 'Active', color: 'text-emerald-400', roleColor: 'bg-purple-900/30 text-purple-400 border border-purple-800/50' },
   ]);
 
-  const [alerts, setAlerts] = useState([
-    { id: 1, severity: 'HIGH', message: 'Gate 3 Relay Timeout anomaly recorded. Attempting auto-recovery handshake.', timestamp: '10 mins ago', color: 'border-red-500 text-red-400 bg-red-950/20' },
-    { id: 2, severity: 'MEDIUM', message: 'Tailgating validation warning triggered at Lobby Turnstile.', timestamp: '24 mins ago', color: 'border-yellow-500 text-yellow-400 bg-yellow-950/20' },
-    { id: 3, severity: 'LOW', message: 'System maintenance sync scheduled for tonight at 02:00 AM.', timestamp: '1 hr ago', color: 'border-blue-500 text-blue-400 bg-blue-950/20' },
-    { id: 4, severity: 'HIGH', message: 'Gate 3 Relay Timeout anomaly recorded. Attempting auto-recovery handshake.', timestamp: '10 mins ago', color: 'border-red-500 text-red-400 bg-red-950/20' },
-    { id: 5, severity: 'MEDIUM', message: 'Tailgating validation warning triggered at Lobby Turnstile.', timestamp: '24 mins ago', color: 'border-yellow-500 text-yellow-400 bg-yellow-950/20' },
-    { id: 6, severity: 'LOW', message: 'System maintenance sync scheduled for tonight at 02:00 AM.', timestamp: '1 hr ago', color: 'border-blue-500 text-blue-400 bg-blue-950/20' }
-  ]);
+  const loadDashboard = async () => {
 
-  const fetchDirectory = async () => {
     try {
-      const response = await fetch(`${API}/community/community-directory`);
-      if (!response.ok) throw new Error('Failed to fetch directory');
-      const data = await response.json();
-      
-      const mappedUsers = data.map((item) => {
-        const uId = item.id;
-        const inferredRole = item.role;
-        const isSecurity = inferredRole === 'Security';
 
-        return {
-          id: uId,
-          name: item.name || (isSecurity ? 'Guard Duty' : 'Resident Host'),
-          role: inferredRole,
-          score: item.score !== undefined ? item.score : 100,
-          status: item.status || 'Active',
-          isInitialized: item.is_initialized, // Track account activation status from database
-          cardStatus: item.card_status || 'active', // Track card block status
-          color: item.score === 0 ? 'text-red-500' : 'text-emerald-400',
-          roleColor: isSecurity ? 'bg-gray-800 text-gray-400' : 'bg-gray-800'
-        };
-      });
-      setUsers(mappedUsers);
-    } catch (err) {
-      console.error('Directory sync error:', err);
+        const alertsResponse = await fetch(
+            "http://127.0.0.1:8000/alerts/admin"
+        );
+
+        const alertsData = await alertsResponse.json();
+
+        setAlerts(alertsData);
+
+        const profileResponse = await fetch(
+            `http://127.0.0.1:8000/profile/admin/${adminId}`
+        );
+
+        const admin = await profileResponse.json();
+
+        setCurrentAdmin({
+
+            name: admin.full_name,
+
+            badgeId: admin.id,
+
+            role: "System Administrator"
+
+        });
+
     }
-  };
 
+    catch (err) {
+
+        console.error(err);
+
+        setError("Unable to load dashboard.");
+
+    }
+
+    finally {
+
+        setLoading(false);
+
+    }
+
+  };
   useEffect(() => {
-    fetchDirectory();
+
+      loadDashboard();
+
+      const interval = setInterval(loadDashboard, 3000);
+
+      return () => clearInterval(interval);
+
   }, []);
 
   const filteredUsers = users.filter(u => {
@@ -71,29 +86,6 @@ export default function AdminTower({ onLogout }) {
     return matchesSearch && matchesFilter;
   });
 
-  const handleBlacklist = async (residentId) => {
-    if (!residentId) return;
-    try {
-      const response = await fetch(`${API}/community/resident/${residentId}`, {
-        method: 'DELETE'
-      });
-      if (response.ok) {
-        alert(`Blacklist Approved. Credentials for ${residentId} have been permanently revoked.`);
-        fetchDirectory();
-        setPendingRequests(pendingRequests.filter(req => req.id !== residentId));
-      } else {
-        const data = await response.json();
-        alert(data.detail || "Revocation request rejected by server.");
-      }
-    } catch (err) {
-      alert("Network failure resolving blacklist sequence.");
-    }
-  };
-
-  const handleRejectRequestLocal = (reqId) => {
-    alert(`Request Rejected. Informing origin node terminal.`);
-    setPendingRequests(pendingRequests.filter(req => req.id !== reqId));
-  };
 
   const handleNumResidentsChange = (e) => {
     const num = parseInt(e.target.value) || 1;
@@ -164,69 +156,46 @@ export default function AdminTower({ onLogout }) {
 
   const handleBroadcast = async (e) => {
     e.preventDefault();
-    setBroadcastSent(false);
-
-    try {
-      const response = await fetch(`${API}/announcement/send-announcement`, {
-        method: 'POST',
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          title: broadcastTitle,
-          message: broadcastMsg
-        })
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.detail || 'Failed to sync noticeboard broadcast.');
-      }
-
-      setBroadcastSent(true);
-      setBroadcastTitle('');
-      setBroadcastMsg('');
-      setTimeout(() => setBroadcastSent(false), 3000);
-
-    } catch (err) {
-      alert(err.message);
-    }
+    setBroadcastSent(true);
+    setBroadcastMsg('');
+    setTimeout(() => setBroadcastSent(false), 3000);
   };
 
-  const handleRemoveUserDirect = async (userId) => {
-    if (!window.confirm(`Revoke clearance credentials for: ${userId}?`)) return;
+  const handleAssignGuard = async (alertId) => {
 
     try {
-      const response = await fetch(`${API}/community/resident/${userId}`, {
-        method: 'DELETE'
-      });
 
-      if (response.ok) {
-        fetchDirectory();
-      } else {
-        const data = await response.json();
-        alert(data.detail || 'Failed to drop target membership identifier.');
-      }
-    } catch (err) {
-      alert('Error connection timeout syncing delete instruction.');
+        const response = await fetch(
+
+            `http://127.0.0.1:8000/alerts/${alertId}/assign/GRD-101`,
+
+            {
+
+                method: "POST"
+
+            }
+
+        );
+
+        if (!response.ok) {
+
+            throw new Error("Failed to assign guard");
+
+        }
+
+        // Refresh alerts after assignment
+        loadDashboard();
+
     }
-  };
 
-  const handleUnblockCard = async (userId) => {
-    try {
-      const response = await fetch(`${API}/resident/unblock-card/${userId}`, {
-        method: 'POST',
-        headers: { "Content-Type": "application/json" }
-      });
+    catch (err) {
 
-      if (response.ok) {
-        alert(`Access Card for ${userId} successfully restored to Active.`);
-        fetchDirectory();
-      } else {
-        const data = await response.json();
-        alert(data.detail || 'Failed to unblock target access card.');
-      }
-    } catch (err) {
-      alert('Network communication error restoring card status.');
+        console.error(err);
+
+        alert("Unable to assign guard.");
+
     }
+
   };
 
   return (
@@ -236,63 +205,234 @@ export default function AdminTower({ onLogout }) {
           <span className="text-xl font-bold tracking-widest text-white">HEIMDALL</span>
           <span className="px-2 py-0.5 bg-purple-900/40 text-purple-400 border border-purple-800 rounded text-xs font-mono font-bold hidden sm:inline-block">ADMIN PORTAL</span>
         </div>
+        <div className="flex items-center space-x-3 bg-gray-950/60 border border-gray-800 rounded-lg px-3 py-1.5 hidden sm:flex">
+
+          <div className="h-8 w-8 rounded-full bg-purple-900/40 border border-purple-800 flex items-center justify-center text-sm font-bold text-purple-400">
+              {currentAdmin?.name?.charAt(0) || "A"}
+          </div>
+
+          <div>
+              <p className="text-sm font-bold text-white">
+                  {currentAdmin?.name || "Loading..."}
+              </p>
+
+              <p className="text-xs text-gray-500">
+                  {currentAdmin?.badgeId}
+              </p>
+          </div>
+        </div>
         <button onClick={onLogout} className="text-sm bg-gray-800 hover:bg-gray-700 border border-gray-700 text-red-400 px-4 py-2 rounded-lg transition">Sign Out</button>
       </nav>
 
       <main className="p-6 max-w-7xl mx-auto space-y-6">
         {/* Top Analytics Metrics Cards Row */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div className="bg-gray-900 p-5 rounded-xl border border-gray-800">
-            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">AI Detection Accuracy</span>
-            <div className="text-2xl font-bold text-emerald-400 mt-1">99.4%</div>
+
+        {/* High Alerts */}
+
+        <div className="bg-gray-900 p-5 rounded-xl border border-red-900">
+
+          <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">
+            High Alerts
+          </span>
+
+          <div className="text-3xl font-bold text-red-400 mt-2">
+            {alerts.filter(a => a.severity === "High" && !a.resolved).length}
           </div>
-          <div className="bg-gray-900 p-5 rounded-xl border border-gray-800">
-            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">False Alerts</span>
-            <div className="text-2xl font-bold text-blue-400 mt-1">1.2%</div>
-          </div>
-          <div className="bg-gray-900 p-5 rounded-xl border border-gray-800">
-            <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Access Events Today</span>
-            <div className="text-2xl font-bold text-gray-200 mt-1 font-mono">1,402</div>
-          </div>
-          <div className="bg-gray-900 p-5 rounded-xl border border-gray-800">
-            <span className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Gates Status</span>
-            <div className="text-2xl font-bold text-purple-300 mt-1">14 / 14 Online</div>
-          </div>
+
+          <p className="text-xs text-gray-500 mt-2">
+            Awaiting Admin Action
+          </p>
+
         </div>
 
-        {/* Middle Sections Grid Row Layout */}
+        {/* Open Incidents */}
+
+        <div className="bg-gray-900 p-5 rounded-xl border border-yellow-900">
+
+          <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">
+            Open Incidents
+          </span>
+
+          <div className="text-3xl font-bold text-yellow-400 mt-2">
+            {alerts.filter(a => !a.resolved).length}
+          </div>
+
+          <p className="text-xs text-gray-500 mt-2">
+            Across Entire Society
+          </p>
+
+        </div>
+
+        {/* Resolved */}
+
+        <div className="bg-gray-900 p-5 rounded-xl border border-green-900">
+
+          <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">
+            Resolved
+          </span>
+
+          <div className="text-3xl font-bold text-green-400 mt-2">
+            {alerts.filter(a => a.resolved).length}
+          </div>
+
+          <p className="text-xs text-gray-500 mt-2">
+            Successfully Closed
+          </p>
+
+        </div>
+
+        {/* Administrator */}
+
+        <div className="bg-gray-900 p-5 rounded-xl border border-purple-900">
+
+          <span className="text-[10px] text-gray-500 uppercase font-bold tracking-widest">
+            Administrator
+          </span>
+
+          <div className="text-lg font-bold text-purple-400 mt-2">
+            {currentAdmin?.name || "Loading..."}
+          </div>
+
+          <p className="text-xs text-gray-500 mt-2">
+            {currentAdmin?.badgeId}
+          </p>
+
+        </div>
+
+      </div>
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="space-y-6 flex flex-col">
             <div className="bg-gray-900 rounded-xl border border-gray-800 flex-1 flex flex-col">
               <div className="p-4 border-b border-gray-800 flex justify-between items-center bg-gray-950/30">
                 <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider">Pending Requests</h2>
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${pendingRequests.length > 0 ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-400'}`}>
-                  {pendingRequests.length} Pending
+                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-900 text-red-300">
+                    {alerts.filter(a=>a.severity==="High" && !a.resolved).length}
+                    High
                 </span>
               </div>
               
-              <div className="p-4 space-y-4 overflow-y-auto max-h-[340px]" style={{ scrollbarWidth: 'thin', scrollbarColor: '#374151 transparent' }}>
-                {pendingRequests.length > 0 ? (
-                  pendingRequests.map((req) => (
-                    <div key={req.id} className="bg-gray-950 border border-gray-800 rounded-lg p-4 animate-fadeIn space-y-2">
-                      <div className="flex justify-between items-start">
-                        <span className="text-[10px] text-gray-500">From: {req.origin}</span>
-                      </div>
-                      <h3 className="text-sm font-bold text-white mb-1">Subject: {req.name} ({req.id})</h3>
-                      <p className="text-xs text-gray-400 mb-3">{req.details}</p>
-                      
-                      <div className="flex space-x-2 border-t border-gray-800 pt-3">
-                        <button onClick={() => handleBlacklist(req.id)} className="flex-1 bg-red-900/50 hover:bg-red-900 text-red-300 border border-red-800 py-1.5 rounded text-xs font-bold transition">Revoke Access</button>
-                        <button onClick={() => handleRejectRequestLocal(req.id)} className="flex-1 bg-gray-800 hover:bg-gray-700 text-gray-300 border border-gray-700 py-1.5 rounded text-xs transition">Reject</button>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-center py-8 animate-fadeIn">
-                    <svg className="w-10 h-10 text-gray-700 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7"></path></svg>
-                    <p className="text-sm text-gray-500">All requests resolved.</p>
+              <div className="p-4 space-y-4 overflow-y-auto">
+
+              {
+              loading ? (
+
+                <div className="flex justify-center items-center py-20">
+
+                    <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500"></div>
+
+                </div>
+
+              ) : error ? (
+
+                  <div className="text-center py-10 text-red-400">
+
+                      {error}
+
                   </div>
-                )}
+
+              ) : alerts.filter(a => a.severity === "High").length === 0 ? (
+
+                  <div className="text-center py-10">
+
+                      <p className="text-emerald-400 font-semibold">
+
+                          No High Priority Alerts
+
+                      </p>
+
+                  </div>
+
+              ) : (
+
+                  alerts.filter(
+                          a => a.severity === "High" && !a.resolved
+                      )   
+                      .map(alert => (
+
+                          <div
+                              key={alert._id}
+                              className="bg-gray-950 border border-red-900 rounded-xl p-4"
+                          >
+
+                              <div className="flex justify-between">
+
+                                  <span className="text-red-400 font-bold">
+
+                                      HIGH
+
+                                  </span>
+
+                                  <span className="text-xs text-gray-500">
+
+                                      {alert.status}
+
+                                  </span>
+
+                              </div>
+
+                              <h3 className="text-lg font-bold text-white mt-3">
+
+                                  {alert.signal_type}
+
+                              </h3>
+
+                              <p className="text-gray-400 mt-2">
+
+                                  {alert.summary}
+
+                              </p>
+
+                              <p className="text-xs text-gray-500 mt-2">
+                                  Resident : {alert.resident_id}
+                              </p>
+
+                              <p className="text-xs text-gray-500">
+                                  Gate : {alert.gate_id}
+                              </p>
+
+                              <p className="text-xs text-gray-500">
+                                  {new Date(alert.created_at).toLocaleString()}
+                              </p>
+
+                              <div className="mt-3 bg-blue-950/20 border-l-4 border-blue-700 p-3 rounded">
+
+                                  <p className="text-blue-300 text-sm">
+
+                                      {alert.recommended_action}
+
+                                  </p>
+
+                              </div>
+
+                              <div className="flex justify-between mt-5">
+
+                                  <button
+
+                                      onClick={() => handleAssignGuard(alert._id)}
+
+                                      className="bg-yellow-600 hover:bg-yellow-700 px-4 py-2 rounded-lg font-semibold"
+                                  >
+                                    Assign Guard
+                                  </button>
+
+                                  <button
+                                      className="bg-purple-700 hover:bg-purple-800 px-4 py-2 rounded-lg font-semibold"
+                                  >
+                                      Broadcast
+                                  </button>
+
+                              </div>
+
+                          </div>
+
+                      ))
+
+              )
+
+              }
+
               </div>
             </div>
           </div>
