@@ -38,9 +38,9 @@ class DeliveryRequest(BaseModel):
 
 
 @router.post("/guest")
-async def create_guest_pass(payload: GuestPassRequest):
+def create_guest_pass(payload: GuestPassRequest):
 
-    resident = await db.residents.find_one({
+    resident =  db.residents.find_one({
         "id": payload.resident_id
     })
 
@@ -50,7 +50,7 @@ async def create_guest_pass(payload: GuestPassRequest):
             detail="Resident not found"
         )
 
-    guest_count = await db.guest_passes.count_documents({})
+    guest_count =  db.guest_passes.count_documents({})
     guest_id = f"VIS-{guest_count + 101}"
 
     qr_data = {
@@ -69,7 +69,7 @@ async def create_guest_pass(payload: GuestPassRequest):
         "qrData": qr_data
     }
 
-    await db.guest_passes.insert_one(guest_doc)
+    db.guest_passes.insert_one(guest_doc)
 
     return {
         "message": "Guest pass created successfully",

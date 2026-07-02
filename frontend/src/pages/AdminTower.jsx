@@ -13,6 +13,7 @@ export default function AdminTower({ onLogout }) {
   const [flatNum, setFlatNum] = useState('');
   const [badges, setBadges] = useState(['']);
   const [numSec, setNumSec] = useState(1);
+  const [directoryRoleFilter, setDirectoryRoleFilter] = useState("All");
   const [generatedCreds, setGeneratedCreds] = useState(null);
   const [broadcastTitle, setBroadcastTitle] = useState(''); 
   const [broadcastMsg, setBroadcastMsg] = useState('');

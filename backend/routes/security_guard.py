@@ -8,13 +8,13 @@ router = APIRouter()
 
 
 @router.post("/generate-security-guards")
-async def generate_security_guards(data: SecurityGuardRequest):
+def generate_security_guards(data: SecurityGuardRequest):
 
     output = []
 
     start_id = 101
 
-    while await db.security_guards.find_one(
+    while db.security_guards.find_one(
         {"id": f"guard_{start_id}"}
     ):
         start_id += 1
@@ -32,7 +32,7 @@ async def generate_security_guards(data: SecurityGuardRequest):
             "is_initialized": False
         }
 
-        await db.security_guards.insert_one(guard)
+        db.security_guards.insert_one(guard)
 
         output.append({
             "Security": "Security",

@@ -69,7 +69,7 @@ async def initialize_resident(resident: ResidentInitialize):
 
 
 @router.post("/login")
-async def login_resident(credentials: ResidentLogin):
+def login_resident(credentials: ResidentLogin):
 
     resident = db.residents.find_one({
         "id": credentials.id
@@ -109,7 +109,7 @@ async def login_resident(credentials: ResidentLogin):
 
 
 @router.post("/security/initialize")
-async def initialize_security(guard: SecurityInitialize):
+def initialize_security(guard: SecurityInitialize):
 
     if guard.password != guard.confirm_password:
         raise HTTPException(
@@ -158,7 +158,7 @@ async def initialize_security(guard: SecurityInitialize):
 
 
 @router.post("/security/login")
-async def login_security(credentials: SecurityLogin):
+def login_security(credentials: SecurityLogin):
 
     guard =  db.security_guards.find_one({
         "id": credentials.id
@@ -197,7 +197,7 @@ async def login_security(credentials: SecurityLogin):
 
 
 @router.post("/admin/login")
-async def login_admin(credentials: AdminLogin):
+def login_admin(credentials: AdminLogin):
 
     admin = db.admins.find_one({
         "id": credentials.id

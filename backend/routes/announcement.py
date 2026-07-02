@@ -9,7 +9,7 @@ router = APIRouter()
 
 
 @router.post("/send-announcement")
-async def send_announcement(data: AnnouncementRequest):
+def send_announcement(data: AnnouncementRequest):
 
     announcement = {
         "title": data.title,
@@ -17,7 +17,7 @@ async def send_announcement(data: AnnouncementRequest):
         "created_at": datetime.now(ZoneInfo("Asia/Kolkata"))
     }
 
-    await db.announcements_collection.insert_one(announcement)
+    db.announcements_collection.insert_one(announcement)
 
     return {
         "status": "success",
@@ -26,9 +26,9 @@ async def send_announcement(data: AnnouncementRequest):
 
 
 @router.get("/announcements")
-async def get_announcements():
+def get_announcements():
 
-    announcements = await db.announcements_collection.find(
+    announcements = db.announcements_collection.find(
         {},
         {"_id": 0}
     ).to_list(length=None)

@@ -5,13 +5,13 @@ router = APIRouter()
 
 
 @router.get("/community-directory")
-async def get_community_directory():
+def get_community_directory():
 
-    residents = await db.residents.find(
+    residents = db.residents.find(
         {}, {"_id": 0}
     ).to_list(length=None)
 
-    guards = await db.security_guards.find(
+    guards = db.security_guards.find(
         {}, {"_id": 0}
     ).to_list(length=None)
 
@@ -45,9 +45,9 @@ async def get_community_directory():
 
 
 @router.delete("/resident/{resident_id}")
-async def delete_resident(resident_id: str):
+def delete_resident(resident_id: str):
 
-    result = await db.residents.delete_one(
+    result = db.residents.delete_one(
         {"id": resident_id}
     )
 

@@ -6,7 +6,7 @@ router = APIRouter()
 
 
 @router.get("/simulate-alert")
-async def simulate_alert():
+def simulate_alert():
 
     return {
         "alertId": "ALT001",
@@ -35,7 +35,7 @@ async def simulate_alert():
 
 
 @router.post("/alert-action")
-async def alert_action(data: AlertAction):
+def alert_action(data: AlertAction):
 
     record = {
         "alertId": data.alertId,
@@ -45,7 +45,7 @@ async def alert_action(data: AlertAction):
         "reason": data.reason
     }
 
-    result = await security_db.alert_actions.insert_one(record)
+    result =  security_db.alert_actions.insert_one(record)
 
     return {
         "message": "Action recorded successfully",

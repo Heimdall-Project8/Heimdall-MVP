@@ -12,11 +12,11 @@ from routes.security_guard import router as security_guard_router
 from routes.announcement import router as announcement_router
 from routes.community_directory import router as community_router
 from routes import profile
+from routes.alerts import router as alerts_router
 
 # Security Dashboard routes
 from routes.security import router as security_router
 from routes.blacklist import router as blacklist_router
-from routes.intercom import router as intercom_router
 from routes.delivery import router as delivery_router
 
 app = FastAPI()
@@ -44,6 +44,8 @@ app.include_router(qr_router, prefix="/qr", tags=["QR"])
 # ---------------- Resident ----------------
 app.include_router(resident_router, prefix="/resident", tags=["Resident"])
 
+app.include_router(alerts_router)
+
 # ---------------- Security Guard ----------------
 app.include_router(
     security_guard_router,
@@ -64,11 +66,6 @@ app.include_router(
     tags=["Blacklist"]
 )
 
-app.include_router(
-    intercom_router,
-    prefix="/intercom",
-    tags=["Intercom"]
-)
 
 app.include_router(
     delivery_router,
@@ -93,8 +90,8 @@ app.include_router(
 app.include_router(profile.router)
 
 @app.get("/")
-async def root():
-    resident_count = await db.residents.count_documents({})
+def root():
+    resident_count =  db.residents.count_documents({})
 
     return {
         "message": "Heimdall FastAPI Server Running",

@@ -7,16 +7,16 @@ from zoneinfo import ZoneInfo
 router = APIRouter()
 
 # Access the admin_res database
-db = client["admin_res"]
+db = client["admins"]
 
 
 # ---------------------------------------------------
 # Get all active deliveries (Security Dashboard)
 # ---------------------------------------------------
 @router.get("/pending")
-async def get_pending_deliveries():
+def get_pending_deliveries():
 
-    deliveries = await db.delivery_notifications.find(
+    deliveries = db.delivery_notifications.find(
         {
             "status": {
                 "$in": ["active", "PASSED_GATE"]
@@ -34,9 +34,9 @@ async def get_pending_deliveries():
 # Check deliveries for a specific flat (Optional)
 # ---------------------------------------------------
 @router.get("/check/{flat_no}")
-async def check_delivery(flat_no: str):
+def check_delivery(flat_no: str):
 
-    deliveries = await db.delivery_notifications.find(
+    deliveries = db.delivery_notifications.find(
         {
             "resident_flat": flat_no,
             "status": "active"
@@ -58,9 +58,9 @@ async def check_delivery(flat_no: str):
 # Allow delivery entry
 # ---------------------------------------------------
 @router.post("/allow-entry")
-async def allow_entry(data: DeliveryEntry):
+def allow_entry(data: DeliveryEntry):
 
-    result = await db.delivery_notifications.update_one(
+    result =  db.delivery_notifications.update_one(
         {
             "delivery_id": data.delivery_id,
             "status": "active"

@@ -26,9 +26,9 @@ def normalize_plate(plate: str):
 
 # ---------- Get Resident Profile ----------
 @router.get("/profile/{resident_id}")
-async def get_resident_profile(resident_id: str):
+def get_resident_profile(resident_id: str):
 
-    resident = await db.residents.find_one({
+    resident =  db.residents.find_one({
         "id": resident_id
     })
 
@@ -50,9 +50,9 @@ async def get_resident_profile(resident_id: str):
 
 # ---------- Add Vehicle ----------
 @router.post("/add-vehicle")
-async def add_vehicle(payload: VehicleAdd):
+def add_vehicle(payload: VehicleAdd):
 
-    resident = await db.residents.find_one({
+    resident = db.residents.find_one({
         "id": payload.resident_id
     })
 
@@ -64,7 +64,7 @@ async def add_vehicle(payload: VehicleAdd):
 
     normalized_plate = normalize_plate(payload.plate_number)
 
-    existing_vehicle = await db.vehicles.find_one({
+    existing_vehicle = db.vehicles.find_one({
         "plate_number": normalized_plate
     })
 
@@ -74,12 +74,12 @@ async def add_vehicle(payload: VehicleAdd):
             detail="Vehicle already registered"
         )
 
-    await db.vehicles.insert_one({
+    db.vehicles.insert_one({
         "plate_number": normalized_plate,
         "resident_id": payload.resident_id
     })
 
-    await db.residents.update_one(
+    db.residents.update_one(
         {"id": payload.resident_id},
         {
             "$push": {
@@ -96,11 +96,11 @@ async def add_vehicle(payload: VehicleAdd):
 
 # ---------- Remove Vehicle ----------
 @router.delete("/remove-vehicle")
-async def remove_vehicle(payload: VehicleRemove):
+def remove_vehicle(payload: VehicleRemove):
 
     normalized_plate = normalize_plate(payload.plate_number)
 
-    result = await db.vehicles.delete_one({
+    result = db.vehicles.delete_one({
         "plate_number": normalized_plate,
         "resident_id": payload.resident_id
     })
@@ -111,7 +111,7 @@ async def remove_vehicle(payload: VehicleRemove):
             detail="Vehicle not found"
         )
 
-    await db.residents.update_one(
+    db.residents.update_one(
         {"id": payload.resident_id},
         {
             "$pull": {
@@ -127,9 +127,9 @@ async def remove_vehicle(payload: VehicleRemove):
 
 # ---------- Report Lost Card ----------
 @router.post("/report-lost-card/{resident_id}")
-async def report_lost_card(resident_id: str):
+def report_lost_card(resident_id: str):
 
-    resident = await db.residents.find_one({
+    resident = db.residents.find_one({
         "id": resident_id
     })
 
@@ -147,7 +147,7 @@ async def report_lost_card(resident_id: str):
             detail="Card already blocked"
         )
 
-    await db.residents.update_one(
+    db.residents.update_one(
         {"id": resident_id},
         {
             "$set": {
@@ -156,7 +156,7 @@ async def report_lost_card(resident_id: str):
         }
     )
 
-    await db.security_alerts.insert_one({
+    db.security_alerts.insert_one({
         "type": "lost_card",
         "resident_id": resident_id,
         "badge": resident["badge"],
@@ -173,9 +173,9 @@ async def report_lost_card(resident_id: str):
 
 
 @router.post("/generate-identities")
-async def generate_identities(data: ResidentRequest):
+def generate_identities(data: ResidentRequest):
 
-    existing = await db.residents.find_one(
+    existing = db.residents.find_one(
         {
             "flat_number": data.flat_number
         }
@@ -204,7 +204,7 @@ async def generate_identities(data: ResidentRequest):
             "card_status": "active"
         }
 
-        await db.residents.insert_one(resident)
+        db.residents.insert_one(resident)
 
         output.append({
             "Resident": "Resident",
@@ -218,11 +218,11 @@ async def generate_identities(data: ResidentRequest):
 
 
 @router.get("/announcements")
-async def get_recent_announcements():
+def get_recent_announcements():
 
     cutoff = datetime.now() - timedelta(hours=24)
 
-    announcements = await db.announcements_collection.find({
+    announcements =  db.announcements_collection.find({
         "created_at": {"$gte": cutoff}
     }).sort("created_at", -1).to_list(length=50)
 
